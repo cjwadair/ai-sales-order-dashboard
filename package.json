@@ -1,0 +1,12 @@
+{
+  "name": "order-management-demo",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --names \"rails,vite\" --prefix-colors \"red,cyan\" \"npm run dev:rails\" \"npm run dev:frontend\"",
+    "dev:rails": "cd rails-backend && bin/dev",
+    "dev:frontend": "cd react-frontend && npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}

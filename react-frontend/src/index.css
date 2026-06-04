@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-brand-100: #F0F8FE;
+  --color-brand-500: #D84510;
+  --color-brand-600: #C7340F;
+  --color-accent-100: #E7F2FE;
+  --color-accent-200: #D2E7F9;
+  --color-accent-300: #C0DCF2;
+  --color-accent-400: #99C7E5;
+  --color-accent-500: #6CB5E0;
+  --color-accent-600: #2283C3;
+  --color-accent-700: #16629C;
+  --color-accent-800: #0A4376;
+  --color-accent-900: #042649;
+  --color-neutral-100: #EFF2F5;
+  --color-neutral-200: #E0E5EB;
+  --color-neutral-300: #C4CAD4;
+  --color-neutral-400: #8A98A8;
+  --color-neutral-500: #73808C;
+  --color-neutral-600: #576775;
+  --color-neutral-700: #414F58;
+  --color-neutral-800: #33444D;
+  --color-neutral-900: #161B1D;
+  --breakpoint-3xl: 1920px;
+  --breakpoint-4xl: 2560px;
+  --breakpoint-5xl: 3840px;
+}
+
+html {
+  font-size: 16px;
+}
+
+.page-row {
+  @apply mx-auto w-full px-4 sm:px-6 lg:px-10 xl:px-0 xl:max-w-11/12 3xl:max-w-10/12;
+}
+
+.button-link {
+  @apply flex items-center cursor-pointer rounded-md px-2 py-1 text-accent-800 hover:text-accent-900 dark:text-neutral-400 dark:hover:text-neutral-200;
+}
+
+.button-outline {
+  @apply flex items-center rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-400 dark:hover:text-neutral-200 dark:hover:bg-neutral-700;
+}
+
+*:focus-visible {
+  @apply outline-none ring-0 ring-offset-0;
+}
+
+  
