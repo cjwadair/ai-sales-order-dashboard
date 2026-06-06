@@ -10,17 +10,19 @@ module Reports
       rows = result.to_a.map { |row| shape_row(row, compiled.columns) }
 
       limit = ir["limit"]
+      meta = {
+        row_count: rows.size,
+        truncated: limit.present? && rows.size >= limit,
+        unsupported_note: ir["unsupported_note"],
+      }
+      meta[:sql_debug] = sql unless Rails.env.production?
+
       {
         spec: ir,
         title: ir["title"],
         data: rows,
         columns: compiled.columns,
-        meta: {
-          row_count: rows.size,
-          truncated: limit.present? && rows.size >= limit,
-          unsupported_note: ir["unsupported_note"],
-          sql_debug: sql,
-        },
+        meta: meta,
       }
     end
 
