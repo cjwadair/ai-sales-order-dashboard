@@ -59,9 +59,10 @@ RSpec.describe Reports::IrValidator do
       expect(validator.validate(ir)).to include(/grain "decade" is not allowed/)
     end
 
-    it "rejects an unsafe alias" do
-      ir = valid_ir.merge("dimensions" => [{ "field" => "sales_rep.name", "as" => "rep; DROP" }])
-      expect(validator.validate(ir)).to include(/contains illegal characters/)
+    it "accepts a human-readable alias (compiler quotes it as a safe identifier)" do
+      ir = valid_ir.merge("dimensions" => [{ "field" => "sales_rep.name", "as" => "Sales Rep" }],
+                          "sort" => [{ "ref" => "revenue", "direction" => "desc" }])
+      expect(validator.validate(ir)).to eq([])
     end
   end
 

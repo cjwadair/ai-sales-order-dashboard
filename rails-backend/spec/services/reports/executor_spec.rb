@@ -64,6 +64,18 @@ RSpec.describe Reports::Executor do
     expect(envelope[:meta][:row_count]).to eq(0)
   end
 
+  it "round-trips a human-readable alias through SQL into the JSON keys" do
+    pretty_ir = ir.merge(
+      "dimensions" => [{ "field" => "sales_rep.name", "as" => "Sales Rep" }],
+      "measures"   => [{ "fn" => "sum", "field" => "order_total", "as" => "Total Sales" }],
+      "sort"       => [{ "ref" => "Total Sales", "direction" => "desc" }],
+    )
+    envelope = executor.execute(compiler.compile(pretty_ir), pretty_ir)
+
+    expect(envelope[:columns].map { |c| c[:name] }).to eq(["Sales Rep", "Total Sales"])
+    expect(envelope[:data].first).to eq("Sales Rep" => "Bob", "Total Sales" => 200.0)
+  end
+
   it "casts a count measure to an integer" do
     count_ir = { "source" => "order", "measures" => [{ "fn" => "count", "as" => "n" }] }
     envelope = executor.execute(compiler.compile(count_ir), count_ir)

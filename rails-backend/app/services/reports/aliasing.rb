@@ -3,13 +3,12 @@ module Reports
   # (to compute the set of declared aliases for sort-ref checking) and the
   # compiler (to emit `AS <alias>`). Keeping it in one place guarantees the two
   # agree on what a column is called.
+  #
+  # A model-supplied `as:` may be any human-readable label ("Total Sales"); the
+  # compiler always emits it through `quote_column_name`, so an arbitrary string
+  # is safe as a quoted SQL identifier -- no charset restriction is needed here.
   module Aliasing
     module_function
-
-    # Safe charset for a model-supplied `as:` alias. Anything outside this is
-    # rejected by the validator -- aliases are embedded in SQL, so they are not
-    # trusted free text.
-    ALIAS_RE = /\A[a-zA-Z][a-zA-Z0-9_]*\z/
 
     def dimension_alias(dim)
       explicit = dim["as"]
@@ -27,10 +26,6 @@ module Reports
       return "count" if fn == "count" && measure["field"].blank?
 
       "#{fn}_#{measure["field"].to_s.tr(".", "_")}"
-    end
-
-    def valid_alias?(name)
-      name.to_s.match?(ALIAS_RE)
     end
   end
 end

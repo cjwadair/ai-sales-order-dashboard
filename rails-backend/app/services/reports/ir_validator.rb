@@ -79,16 +79,12 @@ module Reports
           add("grain #{dim["grain"].inspect} is not allowed on #{ref.inspect}")
         end
       end
-
-      validate_alias(dim["as"])
     end
 
     def validate_measure(measure)
       fn = measure["fn"]
       return add("measure is missing `fn`") if fn.blank?
       return add("unknown aggregation #{fn.inspect}") unless AGGREGATE_FNS.include?(fn.to_s)
-
-      validate_alias(measure["as"])
 
       ref = measure["field"]
 
@@ -202,11 +198,6 @@ module Reports
       unless limit.is_a?(Integer) && limit >= 1 && limit <= MAX_LIMIT
         add("`limit` must be an integer between 1 and #{MAX_LIMIT}")
       end
-    end
-
-    def validate_alias(name)
-      return if name.blank?
-      add("alias #{name.inspect} contains illegal characters") unless Aliasing.valid_alias?(name)
     end
 
     def declared_aliases(dims, measures)
