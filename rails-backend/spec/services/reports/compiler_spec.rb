@@ -1,0 +1,103 @@
+require 'rails_helper'
+
+RSpec.describe Reports::Compiler do
+  let(:config) { Reports::SemanticConfig.for("sales") }
+  subject(:compiler) { described_class.new(config) }
+
+  before { Reports::SemanticConfig.reset_cache! }
+
+  describe "the YTD-sales-by-rep fixture" do
+    let(:ir) do
+      {
+        "source" => "order",
+        "dimensions" => [{ "field" => "sales_rep.name", "as" => "rep" }],
+        "measures"   => [{ "fn" => "sum", "field" => "order_total", "as" => "revenue" }],
+        "filters" => { "op" => "and", "conditions" => [
+          { "field" => "order_date", "op" => "gte", "value" => { "relative" => "year_start" } },
+        ] },
+        "sort"  => [{ "ref" => "revenue", "direction" => "desc" }],
+        "limit" => 5,
+      }
+    end
+
+    let(:sql) { compiler.compile(ir).relation.to_sql }
+
+    it "joins the sales_reps table" do
+      expect(sql).to match(/INNER JOIN "sales_reps"/)
+    end
+
+    it "selects the dimension and aggregate with their aliases" do
+      expect(sql).to include(%(SELECT "sales_reps"."name" AS "rep"))
+      expect(sql).to include(%(SUM("sales_orders"."order_total") AS "revenue"))
+    end
+
+    it "groups by the dimension expression" do
+      expect(sql).to include(%(GROUP BY "sales_reps"."name"))
+    end
+
+    it "binds the relative-date value (not interpolated as a token)" do
+      expect(sql).to include(%("sales_orders"."order_date" >= '#{Date.current.beginning_of_year}'))
+      expect(sql).not_to include("year_start")
+    end
+
+    it "orders by the measure alias and applies the limit" do
+      expect(sql).to match(/ORDER BY "revenue" DESC/)
+      expect(sql).to match(/LIMIT 5\b/)
+    end
+
+    it "reports column metadata with types" do
+      cols = compiler.compile(ir).columns
+      expect(cols).to eq([
+        { name: "rep", type: :string },
+        { name: "revenue", type: :decimal },
+      ])
+    end
+  end
+
+  describe "date grain" do
+    it "wraps a dated dimension in date_trunc and groups by it" do
+      ir = {
+        "source" => "order",
+        "dimensions" => [{ "field" => "order_date", "grain" => "month", "as" => "m" }],
+        "measures" => [{ "fn" => "count" }],
+      }
+      result = compiler.compile(ir)
+      expect(result.relation.to_sql).to include(%(date_trunc('month', "sales_orders"."order_date") AS "m"))
+      expect(result.relation.to_sql).to include("COUNT(*)")
+      expect(result.columns).to eq([{ name: "m", type: :date }, { name: "count", type: :integer }])
+    end
+  end
+
+  describe "filter operators" do
+    def where_sql(condition)
+      ir = { "source" => "order", "measures" => [{ "fn" => "count" }],
+             "filters" => { "op" => "and", "conditions" => [condition] } }
+      compiler.compile(ir).relation.to_sql
+    end
+
+    it "compiles an `in` list" do
+      expect(where_sql("field" => "order_status", "op" => "in", "value" => %w[pending shipped]))
+        .to include(%("sales_orders"."order_status" IN ('pending', 'shipped')))
+    end
+
+    it "compiles a `between` range" do
+      sql = where_sql("field" => "order_total", "op" => "between", "value" => [10, 20])
+      expect(sql).to include(%("sales_orders"."order_total" BETWEEN 10 AND 20))
+    end
+
+    it "compiles a case-insensitive `like`" do
+      expect(where_sql("field" => "consignee.name", "op" => "like", "value" => "acme"))
+        .to include(%("consignees"."name" ILIKE '%acme%'))
+    end
+
+    it "compiles `or` groups with grouping parens" do
+      ir = { "source" => "order", "measures" => [{ "fn" => "count" }],
+             "filters" => { "op" => "or", "conditions" => [
+               { "field" => "order_status", "op" => "eq", "value" => "pending" },
+               { "field" => "order_status", "op" => "eq", "value" => "shipped" },
+             ] } }
+      expect(compiler.compile(ir).relation.to_sql)
+        .to include(%(("sales_orders"."order_status" = 'pending' OR "sales_orders"."order_status" = 'shipped')))
+    end
+  end
+end

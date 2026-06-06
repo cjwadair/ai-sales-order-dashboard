@@ -1,0 +1,190 @@
+module Reports
+  # Turns a *validated* IR spec into a parameterized ActiveRecord relation plus
+  # output-column metadata. Safe by construction:
+  #
+  #   * identifiers (tables/columns) come ONLY from the semantic config (trusted);
+  #   * joins come ONLY from the curated relationship graph (never model-authored);
+  #   * filter values are bound via Arel (quoted/escaped, never interpolated);
+  #   * aliases were charset-validated upstream before being embedded.
+  #
+  # Assumes the IR already passed IrValidator. Returns a CompiledQuery.
+  class Compiler
+    CompiledQuery = Struct.new(:relation, :columns, keyword_init: true)
+
+    class CompileError < StandardError; end
+
+    def initialize(config)
+      @config = config
+      @connection = ActiveRecord::Base.connection
+    end
+
+    def compile(ir)
+      @ir = ir
+      dims     = Array(ir["dimensions"])
+      measures = Array(ir["measures"])
+
+      relation = base_relation
+      relation = apply_joins(relation, dims, measures, ir["filters"])
+      relation = relation.where(build_filter(ir["filters"])) if ir["filters"].present?
+
+      select_parts = dims.map { |d| "#{dimension_expr(d)} AS #{quote_alias(Aliasing.dimension_alias(d))}" }
+      select_parts += measures.map { |m| "#{measure_expr(m)} AS #{quote_alias(Aliasing.measure_alias(m))}" }
+      relation = relation.select(Arel.sql(select_parts.join(", ")))
+
+      # GROUP BY all dimensions whenever any are present (handles both the
+      # aggregated case and a bare distinct-dimension list).
+      if dims.any?
+        relation = relation.group(Arel.sql(dims.map { |d| dimension_expr(d) }.join(", ")))
+      end
+
+      relation = apply_sort(relation, Array(ir["sort"]))
+      relation = relation.limit(ir["limit"]) if ir["limit"].present?
+
+      CompiledQuery.new(relation: relation, columns: columns_for(dims, measures))
+    end
+
+    private
+
+    def base_relation
+      root_model.all
+    end
+
+    def root_model
+      @root_model ||= @config.root_entity[:table].classify.constantize
+    end
+
+    # --- joins ------------------------------------------------------------
+
+    def apply_joins(relation, dims, measures, filters)
+      entities = referenced_entities(dims, measures, filters)
+      associations = entities.map do |entity_name|
+        rel = @config.relationship(entity_name)
+        raise CompileError, "no relationship to #{entity_name.inspect}" unless rel
+        rel[:association]
+      end
+      associations.uniq.inject(relation) { |r, assoc| r.joins(assoc) }
+    end
+
+    def referenced_entities(dims, measures, filters)
+      refs = dims.map { |d| d["field"] }
+      refs += measures.map { |m| m["field"] }.compact
+      refs += filter_field_refs(filters)
+      refs.compact.filter_map { |ref| @config.resolve(ref)&.dig(:entity) }
+          .reject { |entity| @config.root?(entity) }
+          .uniq
+    end
+
+    def filter_field_refs(node, acc = [])
+      return acc unless node.is_a?(Hash)
+      if node.key?("conditions")
+        Array(node["conditions"]).each { |c| filter_field_refs(c, acc) }
+      elsif node["field"]
+        acc << node["field"]
+      end
+      acc
+    end
+
+    # --- WHERE (Arel, values bound) --------------------------------------
+
+    def build_filter(node)
+      if node.key?("conditions")
+        children = Array(node["conditions"]).map { |c| build_filter(c) }
+        combined =
+          if node["op"].to_s == "or"
+            children.inject { |acc, n| acc.or(n) }
+          else
+            children.inject(:and)
+          end
+        Arel::Nodes::Grouping.new(combined)
+      else
+        condition_predicate(node)
+      end
+    end
+
+    def condition_predicate(cond)
+      field = @config.resolve(cond["field"])
+      attr  = Arel::Table.new(field[:table])[field[:column]]
+      op    = cond["op"].to_s
+
+      case op
+      when "eq"      then attr.eq(value_for(cond["value"]))
+      when "neq"     then attr.not_eq(value_for(cond["value"]))
+      when "gt"      then attr.gt(value_for(cond["value"]))
+      when "gte"     then attr.gteq(value_for(cond["value"]))
+      when "lt"      then attr.lt(value_for(cond["value"]))
+      when "lte"     then attr.lteq(value_for(cond["value"]))
+      when "between" then attr.between(Range.new(*cond["value"].map { |v| value_for(v) }))
+      when "in"      then attr.in(cond["value"].map { |v| value_for(v) })
+      when "like"    then attr.matches("%#{value_for(cond["value"])}%")
+      when "is_null" then attr.eq(nil)
+      else
+        raise CompileError, "unsupported operator #{op.inspect}"
+      end
+    end
+
+    def value_for(raw)
+      return RelativeDate.resolve(raw["relative"]) if raw.is_a?(Hash) && raw.key?("relative")
+      raw
+    end
+
+    # --- SELECT / GROUP expressions (config-trusted identifiers) ----------
+
+    def dimension_expr(dim)
+      field = @config.resolve(dim["field"])
+      col = qualified_column(field)
+      dim["grain"].present? ? date_trunc(dim["grain"], col) : col
+    end
+
+    def measure_expr(measure)
+      fn = measure["fn"].to_s
+      return "COUNT(*)" if fn == "count"
+
+      field = @config.resolve(measure["field"])
+      col = qualified_column(field)
+      return "COUNT(DISTINCT #{col})" if fn == "count_distinct"
+
+      "#{fn.upcase}(#{col})"
+    end
+
+    def qualified_column(field)
+      "#{@connection.quote_table_name(field[:table])}.#{@connection.quote_column_name(field[:column])}"
+    end
+
+    # Dialect-specific; isolated here behind a seam for the future multi-DB goal.
+    def date_trunc(grain, col_sql)
+      "date_trunc('#{grain}', #{col_sql})"
+    end
+
+    def quote_alias(name)
+      @connection.quote_column_name(name)
+    end
+
+    # --- ORDER BY (by validated alias) -----------------------------------
+
+    def apply_sort(relation, sort)
+      sort.inject(relation) do |r, s|
+        direction = s["direction"].to_s.casecmp("desc").zero? ? "DESC" : "ASC"
+        r.order(Arel.sql("#{quote_alias(s["ref"])} #{direction}"))
+      end
+    end
+
+    # --- output column metadata ------------------------------------------
+
+    def columns_for(dims, measures)
+      cols = dims.map do |d|
+        field = @config.resolve(d["field"])
+        { name: Aliasing.dimension_alias(d), type: d["grain"].present? ? :date : field[:type] }
+      end
+      cols += measures.map { |m| { name: Aliasing.measure_alias(m), type: measure_type(m) } }
+      cols
+    end
+
+    def measure_type(measure)
+      case measure["fn"].to_s
+      when "count", "count_distinct" then :integer
+      when "avg"                     then :decimal
+      else @config.resolve(measure["field"])[:type] # sum/min/max keep the field type
+      end
+    end
+  end
+end
