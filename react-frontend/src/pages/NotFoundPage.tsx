@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 
 export function NotFoundPage() {
   return (
-    <section className="rounded-xl border border-neutral-200 bg-white p-8 shadow-sm">
+    <section className="rounded-xl bg-white p-8">
       <h2 className="text-3xl font-semibold tracking-tight">Page not found</h2>
       <p className="mt-2 text-base text-neutral-600">The page you requested does not exist.</p>
       <Link
