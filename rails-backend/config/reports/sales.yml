@@ -1,0 +1,77 @@
+# Semantic config for the `sales` reporting source.
+#
+# This file is the SINGLE SOURCE OF TRUTH for the NL -> IR reporting engine.
+# It (1) tells the model what exists (glossary), (2) generates the tool-schema
+# enums, and (3) gives the compiler its allowlist + lookup tables.
+#
+# Access control is by ABSENCE: any column not listed here is invisible to the
+# model AND rejected by the compiler. Sensitive / identifier columns (ids, FKs,
+# licensee_number, etc.) are intentionally omitted.
+#
+# Per field:
+#   column       physical column name
+#   type         string | date | enum | decimal | integer
+#   roles        which IR slots the field may fill: dimension | measure | filter
+#   aggregations (measures) allowed fns: sum | avg | min | max
+#   grains       (dates) allowed date_trunc grains
+#   values       (enums) the closed value set
+source:
+  name: sales
+  dialect: postgres
+  root: order
+
+entities:
+  order:
+    table: sales_orders
+    primary_key: id
+    description: "A sales order placed by a customer (consignee), fulfilled by a supplier, owned by a sales rep."
+    fields:
+      order_number: { column: order_number, type: string,  roles: [dimension, filter] }
+      order_date:   { column: order_date,   type: date,    roles: [dimension, filter], grains: [day, week, month, quarter, year] }
+      delivery_date: { column: delivery_date, type: date,  roles: [dimension, filter], grains: [day, week, month, quarter, year] }
+      order_status: { column: order_status, type: enum,    roles: [dimension, filter], values: [pending, approved, processing, shipped, delivered, completed] }
+      order_type:   { column: order_type,   type: string,  roles: [dimension, filter] }
+      payment_status: { column: payment_status, type: string, roles: [dimension, filter] }
+      order_total:  { column: order_total,  type: decimal, roles: [measure, filter], aggregations: [sum, avg, min, max] }
+
+  sales_rep:
+    table: sales_reps
+    primary_key: id
+    description: "The sales representative who owns the order."
+    fields:
+      name: { column: name, type: string, roles: [dimension, filter] }
+
+  consignee:
+    table: consignees
+    primary_key: id
+    description: "The customer the order was placed for."
+    fields:
+      name:     { column: name,     type: string, roles: [dimension, filter] }
+      industry: { column: industry, type: string, roles: [dimension, filter] }
+
+  supplier:
+    table: suppliers
+    primary_key: id
+    description: "The supplier fulfilling the order."
+    fields:
+      name: { column: name, type: string, roles: [dimension, filter] }
+
+  sales_order_item:
+    table: sales_order_items
+    primary_key: id
+    description: "A line item on a sales order."
+    fields:
+      description:        { column: description,        type: string,  roles: [dimension, filter] }
+      sku:                { column: sku,                type: integer, roles: [dimension, filter] }
+      quantity_requested: { column: quantity_requested, type: integer, roles: [measure, filter], aggregations: [sum, avg, min, max] }
+      quantity_available: { column: quantity_available, type: integer, roles: [measure, filter], aggregations: [sum, avg, min, max] }
+      unit_price:         { column: unit_price,         type: decimal, roles: [measure, filter], aggregations: [sum, avg, min, max] }
+      item_total:         { column: item_total,         type: decimal, roles: [measure, filter], aggregations: [sum, avg, min, max] }
+
+# Relationships are keyed `<from> -> <target>`. All Tier-1 hops originate at the
+# root entity. Joins come ONLY from this curated graph -- never model-authored.
+relationships:
+  order -> sales_rep:        { kind: belongs_to, foreign_key: sales_rep_id, association: sales_rep }
+  order -> consignee:        { kind: belongs_to, foreign_key: consignee_id, association: consignee }
+  order -> supplier:         { kind: belongs_to, foreign_key: supplier_id,  association: supplier }
+  order -> sales_order_item: { kind: has_many,   foreign_key: sales_order_id, association: sales_order_items }
