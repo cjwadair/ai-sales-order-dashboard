@@ -1,7 +1,7 @@
 class Api::V1::ParseQueryController < ApplicationController
   def create
     query = params[:query].to_s.strip
-    return render json: { error: "query is required" }, status: :unprocessable_entity if query.blank?
+    return render json: { error: "query is required" }, status: :unprocessable_content if query.blank?
 
     stop_words = %w[of in to me my by at is it do on or as an so up we us no if go the all for and not but show get find].to_set
     tokens = query.split(/\s+/)
@@ -115,6 +115,6 @@ class Api::V1::ParseQueryController < ApplicationController
 
     render json: tool_use_block.input
   rescue Anthropic::APIError => e
-    render json: { error: e.message }, status: :unprocessable_entity
+    render json: { error: e.message }, status: :unprocessable_content
   end
 end

@@ -12,12 +12,12 @@ RSpec.describe Reports::SemanticConfig do
       expect(config.root_entity_name).to eq("order")
     end
 
-    it "memoizes per source" do
+    it "memoizes per scope" do
       expect(described_class.for("sales")).to be(described_class.for("sales"))
     end
 
-    it "raises for an unknown source" do
-      expect { described_class.for("nope") }.to raise_error(described_class::ConfigError, /unknown reporting source/)
+    it "raises for an unknown scope" do
+      expect { described_class.for("nope") }.to raise_error(described_class::ConfigError, /unknown reporting scope/)
     end
   end
 

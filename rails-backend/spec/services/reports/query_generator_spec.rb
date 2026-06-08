@@ -49,9 +49,57 @@ RSpec.describe Reports::QueryGenerator do
         expect(args[:tool_choice]).to eq(type: "tool", name: "query_report")
         expect(args[:tools].first[:name]).to eq("query_report")
 
-        system_block = args[:system].last
+        # No hints -> a single cached system block carrying the prompt (incl. the tool ref).
+        expect(args[:system].size).to eq(1)
+        system_block = args[:system].first
         expect(system_block[:cache_control]).to eq(type: "ephemeral")
         expect(system_block[:text]).to include("query_report")
+      end
+    end
+
+    # Change C: the domain framing is derived from the config, not hardcoded to "sales orders".
+    it "derives the domain framing from the config rather than hardcoding sales orders" do
+      stub_response([ToolUseStub.new(ir)])
+      generator.generate("anything")
+
+      expect(messages_api).to have_received(:create) do |args|
+        prompt = args[:system].first[:text]
+        expect(prompt).not_to include("sales orders")
+        expect(prompt).to include(config.source_name)                 # "sales"
+        expect(prompt).to include(config.root_entity[:description])   # config-derived descriptor
+      end
+    end
+
+    # Change B: advisory hints are forwarded but kept strictly OUTSIDE the cached prefix.
+    context "with advisory hints" do
+      let(:hints) { { "page" => "sales_orders", "filters" => { "order_status" => "open" } } }
+
+      it "appends hints in a trailing system block with no cache_control" do
+        stub_response([ToolUseStub.new(ir)])
+        generator.generate("the big ones", hints: hints)
+
+        expect(messages_api).to have_received(:create) do |args|
+          # Cached prefix (first block) is unchanged: still cached, no hint content.
+          cached = args[:system].first
+          expect(cached[:cache_control]).to eq(type: "ephemeral")
+          expect(cached[:text]).not_to include("sales_orders")
+
+          # Hints land in a SECOND, uncached block after the breakpoint.
+          hint_block = args[:system].last
+          expect(args[:system].size).to eq(2)
+          expect(hint_block).not_to have_key(:cache_control)
+          expect(hint_block[:text]).to include("sales_orders")
+          expect(hint_block[:text]).to match(/advisory/i) # framed as a soft prior, not a filter
+        end
+      end
+
+      it "omits the hints block entirely when hints are blank" do
+        stub_response([ToolUseStub.new(ir)])
+        generator.generate("the big ones", hints: {})
+
+        expect(messages_api).to have_received(:create) do |args|
+          expect(args[:system].size).to eq(1)
+        end
       end
     end
 

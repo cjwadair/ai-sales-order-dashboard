@@ -7,23 +7,31 @@ module Reports
   #
   #   rows / empty / unsupported_note -> 200 (success envelope)
   #   semantic validation failed       -> 422 validation_failed
-  #   unknown source / bad input       -> 400 bad_request
+  #   unknown scope / bad input        -> 400 bad_request
   #   AI generation failure            -> 502 upstream_error
   #   anything unexpected (defensive)  -> 500 internal
   class QueryService
     Result = Struct.new(:status, :body, keyword_init: true)
 
-    def initialize(query:, history: [], source: "sales", generator: nil)
+    # `scope` is the queryable domain envelope (interim: the controller passes "sales");
+    # internal callers/tests may pass any scope. `hints` is a soft, advisory bias forwarded
+    # to the generator — never a hard filter.
+    #
+    # `generator` is a test seam (decided to keep): request specs inject a mock generator
+    # returning canned IR for each taxonomy outcome, instead of stubbing. Defaults to a real
+    # QueryGenerator in production (see #generator_for).
+    def initialize(query:, history: [], scope: "sales", hints: {}, generator: nil)
       @query = query
       @history = history
-      @source = source
+      @scope = scope
+      @hints = hints
       @generator = generator
     end
 
     def call
-      config = SemanticConfig.for(@source)
+      config = SemanticConfig.for(@scope)
 
-      ir = generator_for(config).generate(@query, history: @history)
+      ir = generator_for(config).generate(@query, history: @history, hints: @hints)
 
       errors = IrValidator.new(config).validate(ir)
       return validation_failed(errors) if errors.any?
@@ -46,7 +54,7 @@ module Reports
     end
 
     def validation_failed(errors)
-      error_result(:unprocessable_entity, "validation_failed",
+      error_result(:unprocessable_content, "validation_failed",
                    "the generated query failed validation", details: errors)
     end
 

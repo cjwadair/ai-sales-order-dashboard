@@ -1,5 +1,5 @@
 module Reports
-  # Loader for a reporting source's semantic config (config/reports/<source>.yml).
+  # Loader for a reporting scope's semantic config (config/reports/<scope>.yml).
   #
   # The config is the single authority for the NL -> IR reporting engine. This
   # loader normalizes the raw YAML once and exposes three projections:
@@ -16,15 +16,15 @@ module Reports
     CONFIG_DIR = Rails.root.join("config", "reports")
     VALID_ROLES = %i[dimension measure filter].freeze
 
-    # Loaded + memoized per source. The config file is the cache key in spirit;
+    # Loaded + memoized per scope. The config file is the cache key in spirit;
     # call reset_cache! after editing YAML in development/tests.
-    def self.for(source = "sales")
-      (@cache ||= {})[source.to_s] ||= load(source.to_s)
+    def self.for(scope = "sales")
+      (@cache ||= {})[scope.to_s] ||= load(scope.to_s)
     end
 
-    def self.load(source)
-      path = CONFIG_DIR.join("#{source}.yml")
-      raise ConfigError, "unknown reporting source: #{source.inspect}" unless File.exist?(path)
+    def self.load(scope)
+      path = CONFIG_DIR.join("#{scope}.yml")
+      raise ConfigError, "unknown reporting scope: #{scope.inspect}" unless File.exist?(path)
 
       new(YAML.safe_load_file(path, permitted_classes: [], aliases: true))
     end

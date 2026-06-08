@@ -86,7 +86,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
 
       it "returns 422 validation_failed with details" do
         post_query
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
         error = response.parsed_body["error"]
         expect(error["code"]).to eq("validation_failed")
         expect(error["details"]).to include(/cannot sum "order_status"/)
@@ -99,12 +99,44 @@ RSpec.describe "Api::V1::Reports", type: :request do
         expect(response).to have_http_status(:bad_request)
         expect(response.parsed_body.dig("error", "code")).to eq("bad_request")
       end
+    end
 
-      it "returns 400 for an unknown source" do
+    context "scope is a server-side decision" do
+      before do
+        rep = create(:sales_rep, name: "Alice")
+        create(:sales_order, :with_consignee, :with_supplier, sales_rep: rep, order_total: 100, order_date: Date.current)
+      end
+
+      # The controller hardcodes scope: "sales" (interim, pending Phase 1.6) and never
+      # reads a client scope/source param, so a bogus value is ignored — not honored as
+      # an unknown scope. (The unknown-scope -> 400 path now lives at the service level;
+      # see semantic_config_spec / query_service_spec.)
+      it "ignores a client-supplied scope/source param and runs against sales" do
         stub_generator(sales_by_rep_ir)
-        post_query(source: "ledger")
-        expect(response).to have_http_status(:bad_request)
-        expect(response.parsed_body.dig("error", "code")).to eq("bad_request")
+        post_query(scope: "ledger", source: "ledger")
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body["data"]).to eq([{ "rep" => "Alice", "revenue" => 100.0 }])
+      end
+    end
+
+    context "advisory hints" do
+      before do
+        rep = create(:sales_rep, name: "Alice")
+        create(:sales_order, :with_consignee, :with_supplier, sales_rep: rep, order_total: 100, order_date: Date.current)
+      end
+
+      it "forwards hints to the generator" do
+        hints = { "page" => "sales_orders", "filters" => { "order_status" => "open" } }
+        expect_any_instance_of(Reports::QueryGenerator)
+          .to receive(:generate)
+          .with("the big ones", history: [], hints: hints)
+          .and_return(sales_by_rep_ir)
+
+        post "/api/v1/reports/query",
+             params: { query: "the big ones", hints: hints },
+             as: :json
+
+        expect(response).to have_http_status(:ok)
       end
     end
 
@@ -141,7 +173,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
         history = [{ "query" => "sales by rep", "spec" => sales_by_rep_ir }]
         expect_any_instance_of(Reports::QueryGenerator)
           .to receive(:generate)
-          .with("now just the completed ones", history: history)
+          .with("now just the completed ones", history: history, hints: {})
           .and_return(sales_by_rep_ir)
 
         post "/api/v1/reports/query",
