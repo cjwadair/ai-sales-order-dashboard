@@ -21,6 +21,14 @@ RSpec.describe Reports::SemanticConfig do
     end
   end
 
+  describe ".available_scopes" do
+    it "enumerates the configured scopes from config/reports/*.yml" do
+      # Only the sales config exists today; this proves the glob-based registry
+      # works (a second config/reports/<scope>.yml would appear here automatically).
+      expect(described_class.available_scopes).to contain_exactly("sales")
+    end
+  end
+
   describe "#field" do
     it "resolves an exposed root field to column/type/roles" do
       field = config.field("order", "order_total")

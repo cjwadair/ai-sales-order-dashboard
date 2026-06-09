@@ -6,7 +6,8 @@ Rails.application.routes.draw do
       resources :suppliers, only: [:index, :show]
       get :filter_options, to: 'filter_options#index'
       post :parse_query, to: 'parse_query#create'
-      post 'reports/query', to: 'reports#query'
+      post 'reports/query', to: 'reports#query'                # generic (Chat); sales-pinned pending 1.7 resolver
+      post 'reports/orders_query', to: 'reports#orders_query'  # focused sales endpoint
     end
   end
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html

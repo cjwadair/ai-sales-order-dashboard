@@ -184,4 +184,37 @@ RSpec.describe "Api::V1::Reports", type: :request do
       end
     end
   end
+
+  # The focused sales endpoint (Phase 1.6). Same pipeline as the generic endpoint,
+  # but scope is pinned by the action rather than (eventually) resolved.
+  describe "POST /api/v1/reports/orders_query" do
+    before do
+      rep = create(:sales_rep, name: "Alice")
+      create(:sales_order, :with_consignee, :with_supplier, sales_rep: rep, order_total: 100, order_date: Date.current)
+    end
+
+    it "pins scope to sales and returns the success envelope" do
+      stub_generator(sales_by_rep_ir)
+      post "/api/v1/reports/orders_query", params: { query: "sales by rep" }, as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body["data"]).to eq([{ "rep" => "Alice", "revenue" => 100.0 }])
+    end
+
+    # An out-of-domain question can't reference foreign fields (enums are generated
+    # from the sales config), so the model returns a best-effort query + unsupported_note
+    # rather than an error: a soft 200, never a 4xx.
+    it "returns a soft 200 with meta.unsupported_note for an out-of-domain question" do
+      stub_generator(sales_by_rep_ir.merge("unsupported_note" => "this question is outside the sales dataset"))
+      post "/api/v1/reports/orders_query", params: { query: "how much inventory is left for SKU 123?" }, as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body["meta"]["unsupported_note"]).to eq("this question is outside the sales dataset")
+    end
+
+    it "returns 400 when query is missing" do
+      post "/api/v1/reports/orders_query", params: {}, as: :json
+      expect(response).to have_http_status(:bad_request)
+    end
+  end
 end

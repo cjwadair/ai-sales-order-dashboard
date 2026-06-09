@@ -33,6 +33,13 @@ module Reports
       @cache = {}
     end
 
+    # The configured reporting scopes — one per config/reports/<scope>.yml.
+    # The registry consumers (the "add a scope" playbook, and the Phase 1.7 scope
+    # resolver) enumerate scopes through this rather than assuming "sales".
+    def self.available_scopes
+      Dir.glob(CONFIG_DIR.join("*.yml")).map { |path| File.basename(path, ".yml") }.sort
+    end
+
     attr_reader :source_name, :dialect, :root_entity_name
 
     def initialize(raw)

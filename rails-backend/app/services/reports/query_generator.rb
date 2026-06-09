@@ -86,6 +86,10 @@ module Reports
         If the request needs something the schema cannot express (running totals,
         rankings, period-over-period, window functions), still return your best
         query and set `unsupported_note` describing what was missing.
+
+        If the question is about data not described in the glossary at all — a
+        different subject area entirely — return a minimal valid query and set
+        `unsupported_note` saying the question is outside this dataset.
       PROMPT
     end
 
