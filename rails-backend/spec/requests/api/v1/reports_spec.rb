@@ -217,5 +217,62 @@ RSpec.describe "Api::V1::Reports", type: :request do
       expect(response).to have_http_status(:bad_request)
     end
 
+
+    # A focused endpoint owns its scope, so a routing hint (hints.page) is meaningless
+    # and is stripped before reaching the generator; the within-scope bias (filters) stays.
+    it "strips hints.page before forwarding hints to the generator" do
+      expect_any_instance_of(Reports::QueryGenerator)
+        .to receive(:generate)
+        .with("sales by rep", history: [], hints: { "filters" => { "order_status" => "open" } })
+        .and_return(sales_by_rep_ir)
+
+      post "/api/v1/reports/orders_query",
+           params: { query: "sales by rep", hints: { page: "inventory_dashboard", filters: { order_status: "open" } } },
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+    end
+  end
+
+  # The generic endpoint resolves scope from the query + hints (Phase 1.7). Routing is
+  # deterministic here (page-honored / clear lexical winner), so no LLM is involved.
+  describe "POST /api/v1/reports/query — scope routing" do
+    let(:inventory_by_warehouse_ir) do
+      {
+        "source" => "inventory",
+        "title" => "Inventory by warehouse",
+        "dimensions" => [{ "field" => "warehouse.name", "as" => "wh" }],
+        "measures"   => [{ "fn" => "sum", "field" => "quantity_available", "as" => "qty" }],
+      }
+    end
+
+    it "routes an inventory question to the inventory scope and surfaces meta.routing" do
+      wh = create(:warehouse, name: "West")
+      create(:inventory_item, warehouse: wh, quantity_available: 30)
+      create(:inventory_item, warehouse: wh, quantity_available: 70)
+      stub_generator(inventory_by_warehouse_ir)
+
+      post "/api/v1/reports/query",
+           params: { query: "quantity available by warehouse", hints: { page: "inventory" } },
+           as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body["data"]).to eq([{ "wh" => "West", "qty" => 100 }])
+      routing = response.parsed_body.dig("meta", "routing")
+      expect(routing["scope"]).to eq("inventory")
+      expect(routing["ambiguous"]).to be(false)
+    end
+
+    it "routes a sales question to the sales scope" do
+      rep = create(:sales_rep, name: "Alice")
+      create(:sales_order, :with_consignee, :with_supplier, :with_warehouse, sales_rep: rep, order_total: 100, order_date: Date.current)
+      stub_generator(sales_by_rep_ir)
+
+      post "/api/v1/reports/query", params: { query: "total revenue by sales rep" }, as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body.dig("meta", "routing", "scope")).to eq("sales")
+    end
+
   end
 end

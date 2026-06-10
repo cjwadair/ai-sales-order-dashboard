@@ -23,9 +23,26 @@ RSpec.describe Reports::SemanticConfig do
 
   describe ".available_scopes" do
     it "enumerates the configured scopes from config/reports/*.yml" do
-      # Only the sales config exists today; this proves the glob-based registry
-      # works (a second config/reports/<scope>.yml would appear here automatically).
-      expect(described_class.available_scopes).to contain_exactly("sales")
+      expect(described_class.available_scopes).to contain_exactly("sales", "inventory")
+    end
+  end
+
+  describe ".page_index" do
+    it "inverts each scope's source.pages into a page -> scope map" do
+      expect(described_class.page_index).to include(
+        "sales_orders" => "sales",
+        "sales_analytics" => "sales",
+        "inventory" => "inventory",
+        "warehouses" => "inventory",
+      )
+    end
+  end
+
+  describe "#vocabulary" do
+    it "collects distinctive tokens (source/entity/field/value names) for the scope" do
+      vocab = described_class.for("inventory").vocabulary
+      expect(vocab).to include("inventory", "warehouse", "product", "sku", "quantity", "available")
+      expect(vocab).not_to include("order") # a sales term, absent from inventory
     end
   end
 
@@ -107,7 +124,7 @@ RSpec.describe Reports::SemanticConfig do
     end
 
     it "returns nil for an unknown relationship" do
-      expect(config.relationship("warehouse")).to be_nil
+      expect(config.relationship("unknown")).to be_nil
     end
   end
 

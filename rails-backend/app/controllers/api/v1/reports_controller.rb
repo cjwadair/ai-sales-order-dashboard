@@ -1,20 +1,25 @@
 class Api::V1::ReportsController < ApplicationController
   include Reports::ScopedQuery
 
-  # Scope is decided by the endpoint, never the client (a focused endpoint pins one
-  # domain; the generic Chat endpoint stays sales-pinned until Phase 1.7 adds the
-  # scope resolver). `hints` is a soft, advisory bias only — never a hard filter.
+  # Scope is decided by the endpoint, never the client. The generic endpoint resolves
+  # it from the query + hints; focused endpoints pin one domain. `hints` is a soft,
+  # advisory bias only — never a hard filter.
 
   # POST /api/v1/reports/query
-  # The generic ("ask anything" / Chat) endpoint. Sales-pinned for now; Phase 1.7
-  # replaces this pin with the scope resolver (scope: "all" routing).
+  # Generic ("ask anything" / Chat) endpoint: the scope resolver routes the request to
+  # exactly one configured scope (Phase 1.7), then the shared pipeline runs. The chosen
+  # scope + any ambiguity is surfaced in meta.routing.
   def query
-    run_scoped_query(scope: "sales")
+    return if reject_blank_query
+
+    resolution = Reports::ScopeResolver.new.resolve(params[:query].to_s.strip, hints: hints_param)
+    run_scoped_query(scope: resolution.scope, routing: resolution)
   end
 
   # POST /api/v1/reports/orders_query
-  # Focused sales endpoint backing the Orders surface — scope is fixed.
+  # Focused sales endpoint backing the Orders surface — scope is fixed; the routing
+  # hint (hints.page) is stripped so it can't leak a cross-scope signal.
   def orders_query
-    run_scoped_query(scope: "sales")
+    run_scoped_query(scope: "sales", strip_page_hint: true)
   end
 end

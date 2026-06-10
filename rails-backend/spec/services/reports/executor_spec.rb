@@ -8,8 +8,7 @@ RSpec.describe Reports::Executor do
   before { Reports::SemanticConfig.reset_cache! }
 
   def order_for(rep, total)
-    create(:sales_order, :with_consignee, :with_supplier,
-           sales_rep: rep, order_total: total, order_date: Date.current)
+    create(:sales_order, :with_consignee, :with_supplier, :with_warehouse, sales_rep: rep, order_total: total, order_date: Date.current)
   end
 
   let!(:alice) { create(:sales_rep, name: "Alice") }

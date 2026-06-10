@@ -1,0 +1,35 @@
+source:
+  name: inventory
+  dialect: postgres
+  root: inventory
+  # UI surfaces that map to this scope (the `hints.page` a client sends).
+  pages: [inventory, warehouses]
+
+entities:
+  inventory:
+    table: inventory_items
+    primary_key: id
+    description: "Current inventory levels for products in warehouses."
+    fields:
+      quantity_available: { column: quantity_available, type: integer, roles: [measure, filter], aggregations: [sum, avg, min, max] }
+
+  warehouse:
+    table: warehouses
+    primary_key: id
+    description: "The warehouse where the inventory is located."
+    fields:
+      name: { column: name, type: string, roles: [dimension, filter] }
+      code: { column: code, type: string, roles: [dimension, filter] }
+
+  product:
+    table: products
+    primary_key: id
+    description: "The product for which inventory is tracked."
+    fields:
+      name: { column: name, type: string, roles: [dimension, filter] }
+      sku: { column: sku, type: string, roles: [dimension, filter] }
+      category: { column: category, type: string, roles: [dimension, filter] }
+
+relationships:
+  inventory -> warehouse: { kind: belongs_to, foreign_key: warehouse_id, association: warehouse }
+  inventory -> product: { kind: belongs_to, foreign_key: product_id, association: product }

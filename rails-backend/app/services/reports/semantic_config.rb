@@ -31,6 +31,7 @@ module Reports
 
     def self.reset_cache!
       @cache = {}
+      @page_index = nil
     end
 
     # The configured reporting scopes — one per config/reports/<scope>.yml.
@@ -40,13 +41,35 @@ module Reports
       Dir.glob(CONFIG_DIR.join("*.yml")).map { |path| File.basename(path, ".yml") }.sort
     end
 
-    attr_reader :source_name, :dialect, :root_entity_name
+    # page -> scope, inverted from each scope's `source.pages`. The Phase 1.7 scope
+    # resolver uses this to honor a client's `hints.page` deterministically (no LLM).
+    # A page claimed by two scopes is a config error (ambiguous routing).
+    def self.page_index
+      @page_index ||= available_scopes.each_with_object({}) do |scope, idx|
+        self.for(scope).pages.each do |page|
+          if idx.key?(page)
+            raise ConfigError, "page #{page.inspect} is claimed by multiple scopes (#{idx[page]}, #{scope})"
+          end
+          idx[page] = scope
+        end
+      end
+    end
+
+    # Shared tokenizer: lowercase alphanumeric words. Used to build each scope's
+    # vocabulary AND to tokenize the NL query, so the resolver's lexical gate
+    # compares like with like.
+    def self.tokenize(text)
+      text.to_s.downcase.split(/[^a-z0-9]+/).reject(&:blank?)
+    end
+
+    attr_reader :source_name, :dialect, :root_entity_name, :pages
 
     def initialize(raw)
       src = raw.fetch("source") { raise ConfigError, "config missing `source` block" }
       @source_name      = src.fetch("name")
       @dialect          = src.fetch("dialect", "postgres")
       @root_entity_name = src.fetch("root") { raise ConfigError, "config missing `source.root`" }
+      @pages            = Array(src["pages"]).map(&:to_s)
 
       @entities      = normalize_entities(raw.fetch("entities", {}))
       @relationships = normalize_relationships(raw.fetch("relationships", {}))
@@ -134,6 +157,26 @@ module Reports
             }.compact
           end,
         }.compact
+      end
+    end
+
+    # ---- Lexical projection (Phase 1.7 resolver) -------------------------
+
+    # The distinctive token set for this scope — source name, entity names, field
+    # names/columns, and enum values. The resolver scores an NL query against each
+    # scope's vocabulary to decide whether a `hints.page` prior is being overridden
+    # by an out-of-domain question. Descriptions are intentionally excluded (noise).
+    def vocabulary
+      @vocabulary ||= begin
+        raw = [source_name]
+        @entities.each do |entity_name, data|
+          raw << entity_name << data[:table]
+          data[:fields].each do |field_name, f|
+            raw << field_name << f[:column]
+            raw.concat(Array(f[:values]).map(&:to_s))
+          end
+        end
+        raw.flat_map { |term| self.class.tokenize(term) }.to_set
       end
     end
 

@@ -20,11 +20,15 @@ module Reports
     # `generator` is a test seam (decided to keep): request specs inject a mock generator
     # returning canned IR for each taxonomy outcome, instead of stubbing. Defaults to a real
     # QueryGenerator in production (see #generator_for).
-    def initialize(query:, history: [], scope: "sales", hints: {}, generator: nil)
+    # `routing` is the optional scope-resolution record from the generic endpoint
+    # (Phase 1.7); when present it's merged into the success envelope's `meta.routing`
+    # so the client can see which scope ran and whether the choice was ambiguous.
+    def initialize(query:, history: [], scope: "sales", hints: {}, routing: nil, generator: nil)
       @query = query
       @history = history
       @scope = scope
       @hints = hints
+      @routing = routing
       @generator = generator
     end
 
@@ -38,6 +42,7 @@ module Reports
 
       compiled = Compiler.new(config).compile(ir)
       envelope = Executor.new.execute(compiled, ir)
+      envelope[:meta][:routing] = @routing if @routing
       Result.new(status: :ok, body: envelope)
     rescue SemanticConfig::ConfigError => e
       bad_request(e.message)
