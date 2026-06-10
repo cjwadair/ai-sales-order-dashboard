@@ -22,6 +22,7 @@ const AI_SORT_FIELD_MAP: Partial<Record<string, keyof Order>> = {
   order_type: 'orderType',
   customer: 'customer',
   sales_rep: 'salesRep',
+  warehouse: 'warehouse',
 }
 
 function toIso(date: Date | undefined): string | undefined {
@@ -46,9 +47,12 @@ export type UseOrderFiltersParams = {
   setOrderTotalMin: (v: number | undefined) => void
   orderTotalMax: number | undefined
   setOrderTotalMax: (v: number | undefined) => void
+  warehouse: string | undefined
+  setWarehouse: (v: string | undefined) => void
   filterOptions: {
     salesReps: string[]
     customers: string[]
+    warehouses: string[]
   }
   setPage: (page: number) => void
   setSort: (sort: SortState<Order>) => void
@@ -61,7 +65,7 @@ export function useOrderFilters({
   selectedStatus, setSelectedStatus,
   salesRep, setSalesRep, customer, setCustomer,
   orderTotalMin, setOrderTotalMin, orderTotalMax, setOrderTotalMax,
-  filterOptions, setPage,
+  warehouse, setWarehouse, filterOptions, setPage,
   setSort, setActiveFilterIds,
 }: UseOrderFiltersParams): FilterConfig[] {
 
@@ -89,10 +93,12 @@ export function useOrderFilters({
     if (parsed.delivery_date_from !== undefined || parsed.delivery_date_to !== undefined) activateIds.add('deliveryDate')
     if (parsed.sales_rep !== undefined) activateIds.add('salesRep')
     if (parsed.customer !== undefined) activateIds.add('customer')
+    if (parsed.warehouse !== undefined) activateIds.add('warehouse')
     if (parsed.order_total_min !== undefined || parsed.order_total_max !== undefined) activateIds.add('orderTotal')
 
     setSalesRep(parsed.sales_rep)
     setCustomer(parsed.customer)
+    setWarehouse(parsed.warehouse)
     setOrderTotalMin(parsed.order_total_min)
     setOrderTotalMax(parsed.order_total_max)
     activateIds.add('aiSearch')
@@ -116,8 +122,11 @@ export function useOrderFilters({
     delivery_date_to: dateFilters.deliveryDate.from !== undefined ? toIso(dateFilters.deliveryDate.to) : undefined,
     sales_rep: salesRep || undefined,
     customer: customer || undefined,
+    warehouse: warehouse || undefined,
+    order_total_min: orderTotalMin,
+    order_total_max: orderTotalMax,
     ...overrides,
-  }), [searchTerm, selectedStatus, dateFilters.orderDate, dateFilters.deliveryDate, salesRep, customer])
+  }), [searchTerm, selectedStatus, dateFilters.orderDate, dateFilters.deliveryDate, salesRep, customer, warehouse])
 
   return useMemo<FilterConfig[]>(() => [
     {
@@ -232,6 +241,19 @@ export function useOrderFilters({
       },
       onClear: () => { setOrderTotalMin(undefined); setOrderTotalMax(undefined); setPage(1) },
       active: true,
+    },
+    {
+      type: 'dropdown',
+      id: 'warehouse',
+      label: 'Warehouse',
+      options: filterOptions.warehouses,
+      selectedValue: warehouse,
+      onSelect: (value) => {
+        setWarehouse(value)
+        if (hasHistory) injectStateCorrection(buildCurrentParsedFilters({ warehouse: value }))
+      },
+      onClear: () => setWarehouse(undefined),
+      placeholderValue: 'Any',
     },
   ], [
     filterOptions, searchTerm, dateFilters.orderDate, dateFilters.deliveryDate, selectedStatus, salesRep, customer,

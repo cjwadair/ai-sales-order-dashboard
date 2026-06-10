@@ -12,6 +12,7 @@ export type Order = {
   orderDate: string
   customer: string
   salesRep: string
+  warehouse: string
   orderTotal: number
   deliveryDate: string
   orderStatus: OrderStatus
@@ -28,6 +29,7 @@ type SalesOrderResponse = {
   exception_type?: string
   consignee: { name: string }
   sales_rep: { name: string }
+  warehouse: { name: string }
 }
 
 type SalesOrderMeta = {
@@ -50,6 +52,7 @@ type UseOrdersParams = {
   orderTotalMax: number | undefined
   sort: SortState<Order>
   page: number
+  warehouse: string | undefined
 }
 
 type FetchState = {
@@ -79,6 +82,7 @@ function mapOrder(o: SalesOrderResponse): Order {
     deliveryDate: o.delivery_date,
     orderStatus: o.order_status as OrderStatus,
     exceptionType: o.exception_type,
+    warehouse: o.warehouse.name,
   }
 }
 
@@ -95,6 +99,7 @@ export function useOrders({
   orderTotalMax,
   sort,
   page,
+  warehouse,
 }: UseOrdersParams): UseOrdersResult {
   const [orders, setOrders] = useState<Order[]>([])
   const [fetchState, setFetchState] = useState<FetchState>({ isLoading: true, isFetching: true, error: null })
@@ -120,6 +125,7 @@ export function useOrders({
     if (customer) params.set('customer', customer)
     if (orderTotalMin !== undefined) params.set('order_total_min', orderTotalMin.toString())
     if (orderTotalMax !== undefined) params.set('order_total_max', orderTotalMax.toString())
+    if (warehouse) params.set('warehouse', warehouse)
     params.set('sort_by', camelToSnakeCase(sort.field))
     params.set('sort_order', sort.order)
     if (page > 1) params.set('page', page.toString())
@@ -157,7 +163,7 @@ export function useOrders({
       })
 
     return () => { controller.abort(); prevPageRef.current = 0 }
-  }, [searchTerm, orderDateFrom, orderDateTo, deliveryDateFrom, deliveryDateTo, selectedStatus, salesRep, customer, orderTotalMin, orderTotalMax, sort, page])
+  }, [searchTerm, orderDateFrom, orderDateTo, deliveryDateFrom, deliveryDateTo, selectedStatus, salesRep, customer, orderTotalMin, orderTotalMax, sort, page, warehouse])
 
   return { orders, isLoading: fetchState.isLoading, isFetching: fetchState.isFetching, error: fetchState.error, totalPages }
 }

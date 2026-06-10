@@ -14,6 +14,7 @@ export type ParsedFilters = {
   order_total_max?: number
   sort_by?: string
   sort_order?: 'asc' | 'desc'
+  warehouse?: string
 }
 
 type HistoryTurn = { query: string; filters: ParsedFilters }

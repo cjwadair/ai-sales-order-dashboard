@@ -28,6 +28,9 @@ const orderTableColumns: readonly GridColumn<Order>[] = [
     ),
   },
   {
+    field: 'warehouse',
+  },
+  {
     field: 'customer',
     span: 2,
   },
@@ -61,12 +64,7 @@ const orderTableColumns: readonly GridColumn<Order>[] = [
         </div>
       )
     },
-  },
-  {
-    key: 'actions',
-    customCell: () => <FontAwesomeIcon icon={faEllipsis} className="text-xl text-brand-500" />,
-    align: 'center'
-  },
+  }
 ]
 
 const statusColors: Record<OrderStatus, string> = {
@@ -89,6 +87,7 @@ export function OrdersPage() {
   const [orderTotalMin, setOrderTotalMin] = useState<number | undefined>()
   const [orderTotalMax, setOrderTotalMax] = useState<number | undefined>()
   const [activeFilterIds, setActiveFilterIds] = useState<Set<string>>(() => new Set(['aiSearch']))
+  const [warehouse, setWarehouse] = useState<string | undefined>()
   // const [order]
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
@@ -106,6 +105,7 @@ export function OrdersPage() {
     orderTotalMax,
     sort,
     page,
+    warehouse,
   })
 
   const filterOptions = useFilterOptions()
@@ -142,6 +142,8 @@ export function OrdersPage() {
     setPage,
     setSort,
     setActiveFilterIds,
+    warehouse,
+    setWarehouse,
   })
 
   return (
