@@ -90,6 +90,10 @@ class Api::V1::ParseQueryController < ApplicationController
                 type: "number",
                 description: "Maximum order total for filtering"
               },
+              warehouse: {
+                type: "string",
+                description: "Filter by exact warehouse name"
+              },
               sort_by: {
                 type: "string",
                 enum: SalesOrder::SORTABLE_COLUMNS + SalesOrder::ASSOCIATION_SORT_MAP.keys,

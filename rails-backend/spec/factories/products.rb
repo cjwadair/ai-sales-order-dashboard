@@ -2,9 +2,8 @@ FactoryBot.define do
   factory :product do
     name { "MyString" }
     category { "MyString" }
-    description { "MyString" }
-    sku { "MyString" }
+    sequence(:sku) { |n| "SKU#{n}" } # products.sku has a unique index
     unit_price { "9.99" }
-    supplier { nil }
+    association :supplier, factory: :supplier
   end
 end

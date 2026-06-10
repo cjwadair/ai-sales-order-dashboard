@@ -10,13 +10,14 @@ class Api::V1::SalesOrdersController < ApplicationController
     page = params[:page].to_i > 0 ? params[:page].to_i : 1
 
     query = SalesOrder
-      .includes(:sales_order_items, :consignee, :supplier, :sales_rep)
+      .includes(:sales_order_items, :consignee, :supplier, :sales_rep, :warehouse)
       .by_order_date(order_from, order_to)
       .by_delivery_date(delivery_from, delivery_to)
       .by_status(status)
       .by_identifier(identifier)
       .by_sales_rep(params[:sales_rep])
       .by_consignee(params[:customer])
+      .by_warehouse(params[:warehouse])
       .order_total_in_range(params[:order_total_min], params[:order_total_max])
       .order_by(sort_by, sort_order)
 
@@ -40,7 +41,7 @@ class Api::V1::SalesOrdersController < ApplicationController
   def show
     @sales_order = SalesOrderSerializer
       .new(
-        SalesOrder.includes(:sales_order_items, :consignee, :supplier, :sales_rep).find(params[:id])
+        SalesOrder.includes(:sales_order_items, :consignee, :supplier, :sales_rep, :warehouse).find(params[:id])
       )
       .serializable_hash
       .to_json

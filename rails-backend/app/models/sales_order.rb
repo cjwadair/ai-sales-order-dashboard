@@ -78,5 +78,9 @@ class SalesOrder < ApplicationRecord
     scope = scope.where("order_total <= ?", max) if max.present?
     scope
   end
+
+  def self.by_warehouse(warehouse)
+    warehouse.present? ? joins(:warehouse).where("warehouses.name ILIKE ?", "%#{warehouse}%") : all
+  end
   
 end

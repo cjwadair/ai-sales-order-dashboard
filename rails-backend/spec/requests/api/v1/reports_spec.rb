@@ -30,8 +30,8 @@ RSpec.describe "Api::V1::Reports", type: :request do
     context "valid query returning rows" do
       before do
         rep = create(:sales_rep, name: "Alice")
-        create(:sales_order, :with_consignee, :with_supplier, sales_rep: rep, order_total: 100, order_date: Date.current)
-        create(:sales_order, :with_consignee, :with_supplier, sales_rep: rep, order_total: 50, order_date: Date.current)
+        create(:sales_order, :with_consignee, :with_supplier, :with_warehouse, sales_rep: rep, order_total: 100, order_date: Date.current)
+        create(:sales_order, :with_consignee, :with_supplier, :with_warehouse, sales_rep: rep, order_total: 50, order_date: Date.current)
         stub_generator(sales_by_rep_ir)
       end
 
@@ -104,7 +104,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
     context "scope is a server-side decision" do
       before do
         rep = create(:sales_rep, name: "Alice")
-        create(:sales_order, :with_consignee, :with_supplier, sales_rep: rep, order_total: 100, order_date: Date.current)
+        create(:sales_order, :with_consignee, :with_supplier, :with_warehouse, sales_rep: rep, order_total: 100, order_date: Date.current)
       end
 
       # The controller hardcodes scope: "sales" (interim, pending Phase 1.6) and never
@@ -122,7 +122,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
     context "advisory hints" do
       before do
         rep = create(:sales_rep, name: "Alice")
-        create(:sales_order, :with_consignee, :with_supplier, sales_rep: rep, order_total: 100, order_date: Date.current)
+        create(:sales_order, :with_consignee, :with_supplier, :with_warehouse, sales_rep: rep, order_total: 100, order_date: Date.current)
       end
 
       it "forwards hints to the generator" do
@@ -166,7 +166,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
     context "threaded refinement" do
       before do
         rep = create(:sales_rep, name: "Alice")
-        create(:sales_order, :with_consignee, :with_supplier, sales_rep: rep, order_total: 100, order_date: Date.current)
+        create(:sales_order, :with_consignee, :with_supplier, :with_warehouse, sales_rep: rep, order_total: 100, order_date: Date.current)
       end
 
       it "passes prior turns to the generator as history" do
@@ -190,7 +190,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
   describe "POST /api/v1/reports/orders_query" do
     before do
       rep = create(:sales_rep, name: "Alice")
-      create(:sales_order, :with_consignee, :with_supplier, sales_rep: rep, order_total: 100, order_date: Date.current)
+      create(:sales_order, :with_consignee, :with_supplier, :with_warehouse, sales_rep: rep, order_total: 100, order_date: Date.current)
     end
 
     it "pins scope to sales and returns the success envelope" do
@@ -216,5 +216,6 @@ RSpec.describe "Api::V1::Reports", type: :request do
       post "/api/v1/reports/orders_query", params: {}, as: :json
       expect(response).to have_http_status(:bad_request)
     end
+
   end
 end

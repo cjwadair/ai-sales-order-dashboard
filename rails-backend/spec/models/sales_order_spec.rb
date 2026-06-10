@@ -226,4 +226,17 @@ RSpec.describe SalesOrder, type: :model do
     end
   end
 
+  describe "by_warehouse" do
+    it "returns orders matching the warehouse name" do
+      warehouse1 = create(:warehouse, name: "Warehouse A")
+      warehouse2 = create(:warehouse, name: "Warehouse B")
+
+      order1 = create(:sales_order, :with_all_associations, warehouse: warehouse1)
+      order2 = create(:sales_order, :with_all_associations, warehouse: warehouse2)
+
+      expect(SalesOrder.by_warehouse("Warehouse A")).to include(order1)
+      expect(SalesOrder.by_warehouse("Warehouse A")).not_to include(order2)
+    end
+  end
+
 end
