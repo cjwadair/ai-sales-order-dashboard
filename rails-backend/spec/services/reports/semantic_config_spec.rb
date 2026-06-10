@@ -68,6 +68,18 @@ RSpec.describe Reports::SemanticConfig do
         .to eq(%w[pending approved processing shipped delivered completed])
     end
 
+    it "defaults case_sensitive to true and carries no description" do
+      field = config.field("order", "order_number")
+      expect(field[:case_sensitive]).to be(true)
+      expect(field[:description]).to be_nil
+    end
+
+    it "carries case_sensitive: false and a description for a reference field" do
+      field = config.field("warehouse", "code")
+      expect(field[:case_sensitive]).to be(false)
+      expect(field[:description]).to include("WH2")
+    end
+
     it "resolves an exposed related field" do
       expect(config.field("sales_rep", "name")).to include(
         entity: "sales_rep",
@@ -152,6 +164,12 @@ RSpec.describe Reports::SemanticConfig do
       expect(order[:table]).to eq("sales_orders")
       refs = order[:fields].map { |f| f[:ref] }
       expect(refs).to include("order_total", "order_status")
+    end
+
+    it "projects a field description when present" do
+      warehouse = config.glossary.find { |e| e[:entity] == "warehouse" }
+      code = warehouse[:fields].find { |f| f[:ref] == "warehouse.code" }
+      expect(code[:description]).to include("WH2")
     end
   end
 end

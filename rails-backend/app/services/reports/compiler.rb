@@ -106,20 +106,35 @@ module Reports
       attr  = Arel::Table.new(field[:table])[field[:column]]
       op    = cond["op"].to_s
 
+      # Reference fields flagged `case_sensitive: false` compare both sides lower-cased, so
+      # an NL-cased term ("warehouse 2", "wh2") matches the stored value ("Warehouse 2", "WH2").
+      # `like` already renders ILIKE on Postgres, so only equality ops need folding.
+      ci = field[:case_sensitive] == false
+
       case op
-      when "eq"      then attr.eq(value_for(cond["value"]))
-      when "neq"     then attr.not_eq(value_for(cond["value"]))
+      when "eq"      then ci ? lower(attr).eq(ci_value(cond["value"]))     : attr.eq(value_for(cond["value"]))
+      when "neq"     then ci ? lower(attr).not_eq(ci_value(cond["value"])) : attr.not_eq(value_for(cond["value"]))
       when "gt"      then attr.gt(value_for(cond["value"]))
       when "gte"     then attr.gteq(value_for(cond["value"]))
       when "lt"      then attr.lt(value_for(cond["value"]))
       when "lte"     then attr.lteq(value_for(cond["value"]))
       when "between" then attr.between(Range.new(*cond["value"].map { |v| value_for(v) }))
-      when "in"      then attr.in(cond["value"].map { |v| value_for(v) })
+      when "in"      then ci ? lower(attr).in(cond["value"].map { |v| ci_value(v) }) : attr.in(cond["value"].map { |v| value_for(v) })
       when "like"    then attr.matches("%#{value_for(cond["value"])}%")
       when "is_null" then attr.eq(nil)
       else
         raise CompileError, "unsupported operator #{op.inspect}"
       end
+    end
+
+    # LOWER(col) Arel node, for case-insensitive comparisons.
+    def lower(attr)
+      Arel::Nodes::NamedFunction.new("LOWER", [attr])
+    end
+
+    # The bound, lower-cased comparison value (still parameterized by Arel, never interpolated).
+    def ci_value(raw)
+      value_for(raw).to_s.downcase
     end
 
     def value_for(raw)

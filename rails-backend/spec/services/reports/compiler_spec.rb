@@ -100,4 +100,33 @@ RSpec.describe Reports::Compiler do
         .to include(%(("sales_orders"."order_status" = 'pending' OR "sales_orders"."order_status" = 'shipped')))
     end
   end
+
+  describe "case-insensitive reference fields (case_sensitive: false)" do
+    def where_sql(condition)
+      ir = { "source" => "order", "measures" => [{ "fn" => "count" }],
+             "filters" => { "op" => "and", "conditions" => [condition] } }
+      compiler.compile(ir).relation.to_sql
+    end
+
+    it "folds both sides of `eq` to lower case so NL casing matches the stored value" do
+      sql = where_sql("field" => "warehouse.code", "op" => "eq", "value" => "wh2")
+      expect(sql).to include(%(LOWER("warehouses"."code") = 'wh2'))
+    end
+
+    it "folds `neq` as well" do
+      sql = where_sql("field" => "warehouse.name", "op" => "neq", "value" => "Warehouse 2")
+      expect(sql).to include(%(LOWER("warehouses"."name") != 'warehouse 2'))
+    end
+
+    it "folds each value of an `in` list" do
+      sql = where_sql("field" => "warehouse.code", "op" => "in", "value" => %w[WH1 wh2])
+      expect(sql).to include(%(LOWER("warehouses"."code") IN ('wh1', 'wh2')))
+    end
+
+    it "leaves a default (case-sensitive) string field as plain equality" do
+      sql = where_sql("field" => "order_status", "op" => "eq", "value" => "pending")
+      expect(sql).to include(%("sales_orders"."order_status" = 'pending'))
+      expect(sql).not_to include("LOWER(")
+    end
+  end
 end

@@ -18,8 +18,8 @@ entities:
     primary_key: id
     description: "The warehouse where the inventory is located."
     fields:
-      name: { column: name, type: string, roles: [dimension, filter] }
-      code: { column: code, type: string, roles: [dimension, filter] }
+      name: { column: name, type: string, roles: [dimension, filter], description: 'full warehouse name, e.g. "Warehouse 2"', case_sensitive: false }
+      code: { column: code, type: string, roles: [dimension, filter], description: 'short warehouse code, e.g. "WH2"', case_sensitive: false }
 
   product:
     table: products

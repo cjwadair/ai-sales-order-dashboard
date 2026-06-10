@@ -20,6 +20,11 @@ RSpec.describe Reports::ToolSchemaBuilder do
       expect(desc).to include("aggregations: sum, avg, min, max")
       expect(desc).to include("sales_rep.name (string, dimension/filter)")
     end
+
+    it "renders a field description inline so the model learns the field's shape" do
+      desc = builder.build[:description]
+      expect(desc).to include(%(warehouse.code (string, dimension/filter) — short warehouse code, e.g. "WH2"))
+    end
   end
 
   describe "#input_schema field enums" do

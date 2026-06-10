@@ -154,6 +154,7 @@ module Reports
               aggregations: f[:aggregations],
               grains: f[:grains],
               values: f[:values],
+              description: f[:description],
             }.compact
           end,
         }.compact
@@ -223,6 +224,10 @@ module Reports
         aggregations: raw["aggregations"]&.map(&:to_sym),
         grains: raw["grains"]&.map(&:to_sym),
         values: raw["values"],
+        description: raw["description"],
+        # Absent => true => exact (case-sensitive) matching, today's behavior. Set false
+        # on reference fields (e.g. warehouse name/code) so NL-cased terms still match.
+        case_sensitive: raw.fetch("case_sensitive", true),
       }
     end
 

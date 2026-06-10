@@ -70,7 +70,9 @@ module Reports
     private
 
     def field_line(field)
-      parts = ["#{field[:ref]} (#{field[:type]}, #{Array(field[:roles]).join("/")})"]
+      head = "#{field[:ref]} (#{field[:type]}, #{Array(field[:roles]).join("/")})"
+      head += " — #{field[:description]}" if field[:description].present?
+      parts = [head]
       parts << "values: #{field[:values].join(", ")}" if field[:values].present?
       parts << "aggregations: #{field[:aggregations].join(", ")}" if field[:aggregations].present?
       parts << "grains: #{field[:grains].join(", ")}" if field[:grains].present?
