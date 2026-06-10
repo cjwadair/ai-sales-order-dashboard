@@ -49,11 +49,28 @@ RSpec.describe Reports::QueryGenerator do
         expect(args[:tool_choice]).to eq(type: "tool", name: "query_report")
         expect(args[:tools].first[:name]).to eq("query_report")
 
-        # No hints -> a single cached system block carrying the prompt (incl. the tool ref).
-        expect(args[:system].size).to eq(1)
+        # No hints -> the cached prompt block + the trailing uncached clock block.
+        expect(args[:system].size).to eq(2)
         system_block = args[:system].first
         expect(system_block[:cache_control]).to eq(type: "ephemeral")
         expect(system_block[:text]).to include("query_report")
+      end
+    end
+
+    # Phase 1.8: the server clock rides in a trailing, uncached block so the model can
+    # compute absolute dates for named/specific periods without busting the cached prefix.
+    it "injects today's date in a trailing uncached block, never in the cached prefix" do
+      stub_response([ToolUseStub.new(ir)])
+      generator.generate("orders by rep in May")
+
+      expect(messages_api).to have_received(:create) do |args|
+        cached = args[:system].first
+        expect(cached[:cache_control]).to eq(type: "ephemeral")
+        expect(cached[:text]).not_to include(Date.current.iso8601) # no volatile date in the cached prefix
+
+        clock = args[:system][1]
+        expect(clock).not_to have_key(:cache_control)
+        expect(clock[:text]).to include(Date.current.iso8601)
       end
     end
 
@@ -84,9 +101,9 @@ RSpec.describe Reports::QueryGenerator do
           expect(cached[:cache_control]).to eq(type: "ephemeral")
           expect(cached[:text]).not_to include("sales_orders")
 
-          # Hints land in a SECOND, uncached block after the breakpoint.
+          # Hints land in the LAST, uncached block (after the cached prefix and clock block).
           hint_block = args[:system].last
-          expect(args[:system].size).to eq(2)
+          expect(args[:system].size).to eq(3)
           expect(hint_block).not_to have_key(:cache_control)
           expect(hint_block[:text]).to include("sales_orders")
           expect(hint_block[:text]).to match(/advisory/i) # framed as a soft prior, not a filter
@@ -98,7 +115,8 @@ RSpec.describe Reports::QueryGenerator do
         generator.generate("the big ones", hints: {})
 
         expect(messages_api).to have_received(:create) do |args|
-          expect(args[:system].size).to eq(1)
+          # Only the cached prompt + the always-present clock block; no hints block.
+          expect(args[:system].size).to eq(2)
         end
       end
     end

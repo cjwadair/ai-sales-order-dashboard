@@ -14,7 +14,7 @@ module Reports
     TOOL_NAME = "query_report".freeze
 
     DESCRIPTION_PREAMBLE = <<~TXT.strip
-      Translate the user's question into a structured report query using ONLY the entities, fields, operators, and relative-date tokens provided. Prefer aggregations when the user asks for totals or "by"-groupings. Use relative-date tokens; never compute calendar dates yourself. If the request needs something not expressible here (running totals, rankings, period-over-period), still return your best query and set `unsupported_note`.
+      Translate the user's question into a structured report query using ONLY the entities, fields, and operators provided. Prefer aggregations when the user asks for totals or "by"-groupings. For purely-relative time phrases use the provided relative-date tokens; for a specific or named period compute an absolute `between [start, end]` range (ISO YYYY-MM-DD, last day inclusive) from the current-date context. If the request needs something not expressible here (running totals, rankings, period-over-period), still return your best query and set `unsupported_note`.
     TXT
 
     # Canonical grain ordering for the generated enum.

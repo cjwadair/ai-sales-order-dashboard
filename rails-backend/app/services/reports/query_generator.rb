@@ -53,14 +53,29 @@ module Reports
     end
 
     # The cache breakpoint sits on the (stable, config-derived) system prompt block; it
-    # caches tools + system together. Hints — the variable per-request suffix — go in a
-    # SECOND block placed AFTER the breakpoint with NO cache_control, so they never
-    # invalidate or live inside the cached prefix.
+    # caches tools + system together. The variable per-request suffix — the server clock
+    # and advisory hints — goes in trailing blocks placed AFTER the breakpoint with NO
+    # cache_control, so it never invalidates or lives inside the cached prefix. The clock
+    # is what lets the model resolve named/specific periods (e.g. "May") to absolute dates
+    # itself; keeping it out of the cached prefix avoids a daily cache bust.
     def system_blocks(hints = {})
       blocks = [{ type: "text", text: system_prompt, cache_control: { type: "ephemeral" } }]
+      blocks << { type: "text", text: clock_text }
       hint_text = hints_text(hints)
       blocks << { type: "text", text: hint_text } if hint_text
       blocks
+    end
+
+    # Server clock injected as a trailing (uncached) block. Gives the model the anchors it
+    # needs to compute absolute ranges for named/specific periods without fragile date math.
+    # Resolved against Date.current — the same clock RelativeDate tokens resolve against.
+    def clock_text
+      today = Date.current
+      <<~TXT.strip
+        Current date context (resolved server-side; use ONLY for computing absolute dates):
+        - today: #{today.iso8601}
+        - current year: #{today.year}; current quarter: Q#{(today.month - 1) / 3 + 1}; current month: #{today.strftime("%B %Y")}
+      TXT
     end
 
     # Scope-neutral: the domain framing is derived from the loaded config (Change C), so an
@@ -70,10 +85,20 @@ module Reports
       <<~PROMPT
         You translate natural-language questions about #{domain_descriptor} into a
         single structured report query by calling the `query_report` tool. Use ONLY
-        the entities, fields, operators, aggregations, grains, and relative-date tokens
-        defined in the tool schema and field glossary — never invent field names,
-        and never compute calendar dates yourself (always use the provided
-        relative-date tokens).
+        the entities, fields, operators, aggregations, and grains defined in the tool
+        schema and field glossary — never invent field names.
+
+        Dates:
+        - For a PURELY RELATIVE phrase (today, this month, this quarter, last month,
+          last quarter, year-to-date, the last N days), use the provided relative-date
+          tokens — never compute those yourself.
+        - For a SPECIFIC or NAMED period (a named month like "May", a quarter or half,
+          a named or bounded range, or anything with an explicit year), compute the
+          calendar range yourself from the current-date context and emit it as a
+          `between [start, end]` filter on the date field, with ISO `YYYY-MM-DD` bounds
+          inclusive of the full last day (e.g. May 2026 → ["2026-05-01","2026-05-31"]).
+        - A period named WITHOUT a year means its most recent occurrence that has
+          already happened (asked in June 2026: "May" → May 2026; "November" → Nov 2025).
 
         Prefer aggregations (measures) when the user asks for totals, counts,
         averages, or any "by"-grouping. Give every dimension and measure a short,

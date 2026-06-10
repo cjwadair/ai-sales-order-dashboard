@@ -176,8 +176,17 @@ module Reports
       end
 
       if field[:type] == :enum && Array(field[:values]).exclude?(value)
-        add("#{value.inspect} is not an allowed value for #{field[:ref].inspect}")
+        return add("#{value.inspect} is not an allowed value for #{field[:ref].inspect}")
       end
+
+      # The model emits absolute dates as ISO strings for named/specific periods (Phase 1.8).
+      # A literal string on a date field must parse, or it would slip past validation and then
+      # mismatch/error in the database.
+      if field[:type] == :date && value.is_a?(String)
+        Date.iso8601(value)
+      end
+    rescue ArgumentError
+      add("invalid date #{value.inspect} on #{field[:ref].inspect} (expected ISO YYYY-MM-DD)")
     end
 
     def validate_sort(sort, aliases)

@@ -131,6 +131,21 @@ RSpec.describe Reports::IrValidator do
       ] })
       expect(validator.validate(ir)).to include(/requires an array of two values/)
     end
+
+    # Phase 1.8: the model now emits absolute ISO dates for named/specific periods.
+    it "accepts an absolute ISO date range on a date field" do
+      ir = valid_ir.merge("filters" => { "op" => "and", "conditions" => [
+        { "field" => "order_date", "op" => "between", "value" => ["2026-05-01", "2026-05-31"] },
+      ] })
+      expect(validator.validate(ir)).to eq([])
+    end
+
+    it "rejects an unparseable date literal on a date field" do
+      ir = valid_ir.merge("filters" => { "op" => "and", "conditions" => [
+        { "field" => "order_date", "op" => "gte", "value" => "May" },
+      ] })
+      expect(validator.validate(ir)).to include(/invalid date "May" on "order_date"/)
+    end
   end
 
   describe "sort" do
