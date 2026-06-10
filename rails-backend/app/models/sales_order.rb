@@ -2,6 +2,7 @@ class SalesOrder < ApplicationRecord
   belongs_to :consignee
   belongs_to :supplier
   belongs_to :sales_rep
+  belongs_to :warehouse
 
   has_many :sales_order_items, dependent: :destroy
 

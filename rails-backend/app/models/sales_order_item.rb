@@ -1,7 +1,8 @@
 class SalesOrderItem < ApplicationRecord
   belongs_to :sales_order
+  belongs_to :product
 
-  validates :sku, presence: true, uniqueness: true
+  validates :sku, presence: true
   validates :description, presence: true
 
   validates :quantity_requested, presence: true, numericality: { only_integer: true, greater_than_or_equal_to: 0 }, if: -> { sales_order.order_type == "Delivery" }

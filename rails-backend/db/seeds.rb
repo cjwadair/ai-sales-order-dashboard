@@ -21,6 +21,8 @@ def supplier_code(name)
   (initials + first_word)[0, 3].ljust(3, "X")
 end
 
+product_categories = ["Electronics", "Apparel", "Home Goods", "Toys", "Books", "Sports Equipment", "Health & Beauty"]
+
 # Create 10 sample suppliers
 10.times do |i|
   name = Faker::Company.name
@@ -31,10 +33,47 @@ end
     s.name = name
     s.company_code = code
   end
+
+  #create 10 products per supplier
+  10.times do |j|
+    product_name = Faker::Commerce.product_name
+    category = product_categories.sample(random: rng)
+    sku = rng.rand(100000..999999)
+    price = Faker::Commerce.price(range: 10.0..100.0).round(2)
+
+    Product.find_or_create_by!(sku: sku) do |p|
+      p.name = product_name
+      p.category = category
+      p.supplier = Supplier.find_by(supplier_number: number)
+      p.unit_price = price
+    end
+  end
 end
 
-# Create 50 sample consignees
-50.times do |i|
+#create 3 warehouses
+3.times do |i|
+  name = "Warehouse #{i + 1}"
+  location = Faker::Address.city
+  code = "WH#{i + 1}"
+
+  Warehouse.find_or_create_by!(code: code) do |w|
+    w.name = name
+    w.location = location
+  end
+end
+
+#add inventory items for each product in each warehouse with random quantities
+Warehouse.all.each do |warehouse|
+  Product.all.each do |product|
+    quantity = rng.rand(0..100)
+    InventoryItem.find_or_create_by!(warehouse: warehouse, product: product) do |ii|
+      ii.quantity_available = quantity
+    end
+  end
+end
+
+# Create 25 sample consignees
+25.times do |i|
   name = Faker::Company.name
   licensee_number = 20001 + i
   industry = Faker::Company.industry
@@ -66,6 +105,8 @@ Consignee.find_each do |consignee|
 
     order_type = rng.rand(20) == 0 ? "Return" : "Delivery"
 
+    warehouse = Warehouse.all.sample(random: rng)
+
     sales_order = SalesOrder.find_or_create_by!(order_number: order_number) do |so|
       so.consignee = consignee
       so.order_type = order_type
@@ -76,13 +117,15 @@ Consignee.find_each do |consignee|
       so.order_date = order_date
       so.delivery_date = delivery_date
       so.order_total = 0
+      so.warehouse_id = warehouse.id
     end
 
     next unless sales_order.previously_new_record?
 
     total = 0
     rng.rand(1..5).times do
-      sku = rng.rand(100000..999999)
+      product = Product.where(supplier: sales_order.supplier).sample(random: rng)
+      next unless product
       quantity_requested = sales_order.order_type == "Return" ? -1 * rng.rand(1..10) : rng.rand(1..10)
       if sales_order.order_type == "Delivery"
         max = quantity_requested - 1
@@ -97,7 +140,8 @@ Consignee.find_each do |consignee|
       begin
         SalesOrderItem.create!(
           sales_order: sales_order,
-          sku: sku,
+          product: product,
+          sku: product.sku,
           description: Faker::Commerce.product_name,
           quantity_requested: quantity_requested,
           quantity_available: quantity_available,

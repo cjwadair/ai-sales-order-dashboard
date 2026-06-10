@@ -10,6 +10,6 @@ class CreateSalesOrderItems < ActiveRecord::Migration[8.1]
       t.references :sales_order, null: false, foreign_key: true
       t.timestamps
     end
-    add_index :sales_order_items, :sku, unique: true
+    add_index :sales_order_items, :sku
   end
 end

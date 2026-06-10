@@ -68,6 +68,15 @@ entities:
       unit_price:         { column: unit_price,         type: decimal, roles: [measure, filter], aggregations: [sum, avg, min, max] }
       item_total:         { column: item_total,         type: decimal, roles: [measure, filter], aggregations: [sum, avg, min, max] }
 
+  warehouse:
+    table: warehouses
+    primary_key: id
+    description: "The warehouse from which the order is fulfilled."
+    fields:
+      name: { column: name, type: string, roles: [dimension, filter] }
+      code: { column: code, type: string, roles: [dimension, filter] }
+      location: { column: location, type: string, roles: [dimension, filter] }
+
 # Relationships are keyed `<from> -> <target>`. All Tier-1 hops originate at the
 # root entity. Joins come ONLY from this curated graph -- never model-authored.
 relationships:
@@ -75,3 +84,4 @@ relationships:
   order -> consignee:        { kind: belongs_to, foreign_key: consignee_id, association: consignee }
   order -> supplier:         { kind: belongs_to, foreign_key: supplier_id,  association: supplier }
   order -> sales_order_item: { kind: has_many,   foreign_key: sales_order_id, association: sales_order_items }
+  order -> warehouse:        { kind: belongs_to, foreign_key: warehouse_id, association: warehouse }

@@ -6,6 +6,7 @@ class SalesOrderSerializer < Panko::Serializer
   has_one :consignee
   has_one :supplier
   has_one :sales_rep
+  has_one :warehouse
 
   def exception_type
     if object.order_type == "Return"
