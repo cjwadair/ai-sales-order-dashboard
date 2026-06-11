@@ -9,7 +9,7 @@ module Reports
   #
   # Projection and grouping use full Arel nodes (NamedFunction / Attribute) so
   # the same node instance drives both SELECT and GROUP BY — no string duplication.
-  # Dialect-specific SQL (date_trunc) lives in Reports::Dialect.
+  # Dialect-specific SQL (date_trunc) lives in Reports::SqlAdapter.
   #
   # Assumes the IR already passed IrValidator. Returns a CompiledQuery.
   class Compiler
@@ -19,8 +19,8 @@ module Reports
 
     def initialize(config)
       @config = config
-      @dialect = Dialect.for(config.dialect)
       @connection = ActiveRecord::Base.connection
+      @sql_adapter = SqlAdapter.for(@connection.adapter_name)
     end
 
     def compile(ir)
@@ -247,7 +247,7 @@ module Reports
     def dimension_node(dim)
       field = @config.resolve(dim["field"])
       attr = Arel::Table.new(field[:table])[field[:column]]
-      dim["grain"].present? ? @dialect.date_trunc(dim["grain"], attr) : attr
+      dim["grain"].present? ? @sql_adapter.date_trunc(dim["grain"], attr) : attr
     end
 
     # Returns an Arel aggregate node (NamedFunction or Count) for this measure.

@@ -99,7 +99,6 @@ compiler's allowlist/lookup tables. Loaded and memoized per scope by `Reports::S
 ```yaml
 source:
   name: sales            # the scope name
-  dialect: postgres
   root: order            # root entity (the IR `source`)
   pages: [sales_orders, sales_analytics]   # UI surfaces routed to this scope via hints.page
 
@@ -138,7 +137,7 @@ Apply both to any reference name/code field as ambiguity surfaces; they are not 
 
 ## Adding a scope (the playbook)
 
-1. **Write `config/reports/<scope>.yml`** — `source` block (`name`/`dialect`/`root`/`pages`),
+1. **Write `config/reports/<scope>.yml`** — `source` block (`name`/`root`/`pages`),
    `entities` with exposed fields, `relationships` keyed `<from> -> <target>`. Curation only:
    access control is by absence.
 2. **Ensure the AR models + associations exist.** The compiler resolves the root model via

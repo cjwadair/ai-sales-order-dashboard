@@ -55,12 +55,11 @@ module Reports
       end
     end
 
-    attr_reader :source_name, :dialect, :root_entity_name, :pages
+    attr_reader :source_name, :root_entity_name, :pages
 
     def initialize(raw)
       src = raw.fetch("source") { raise ConfigError, "config missing `source` block" }
       @source_name      = src.fetch("name")
-      @dialect          = src.fetch("dialect", "postgres")
       @root_entity_name = src.fetch("root") { raise ConfigError, "config missing `source.root`" }
       @pages            = Array(src["pages"]).map(&:to_s)
 

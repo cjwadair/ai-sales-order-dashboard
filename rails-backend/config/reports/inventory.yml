@@ -1,6 +1,5 @@
 source:
   name: inventory
-  dialect: postgres
   root: inventory
   # UI surfaces that map to this scope (the `hints.page` a client sends).
   pages: [inventory, warehouses]

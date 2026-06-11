@@ -17,7 +17,6 @@
 #   values       (enums) the closed value set
 source:
   name: sales
-  dialect: postgres
   root: order
   # UI surfaces that map to this scope (the `hints.page` a client sends). The
   # Phase 1.7 scope resolver inverts these into a page->scope index for routing.

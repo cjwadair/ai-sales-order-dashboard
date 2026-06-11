@@ -8,7 +8,6 @@ RSpec.describe Reports::SemanticConfig do
   describe ".for" do
     it "loads the sales source" do
       expect(config.source_name).to eq("sales")
-      expect(config.dialect).to eq("postgres")
       expect(config.root_entity_name).to eq("order")
     end
 
