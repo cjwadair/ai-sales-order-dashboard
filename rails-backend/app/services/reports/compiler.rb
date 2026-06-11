@@ -7,6 +7,10 @@ module Reports
   #   * filter values are bound via Arel (quoted/escaped, never interpolated);
   #   * aliases were charset-validated upstream before being embedded.
   #
+  # Projection and grouping use full Arel nodes (NamedFunction / Attribute) so
+  # the same node instance drives both SELECT and GROUP BY — no string duplication.
+  # Dialect-specific SQL (date_trunc) lives in Reports::Dialect.
+  #
   # Assumes the IR already passed IrValidator. Returns a CompiledQuery.
   class Compiler
     CompiledQuery = Struct.new(:relation, :columns, :applied_limit, :limit_defaulted, keyword_init: true)
@@ -15,6 +19,7 @@ module Reports
 
     def initialize(config)
       @config = config
+      @dialect = Dialect.for(config.dialect)
       @connection = ActiveRecord::Base.connection
     end
 
@@ -26,16 +31,12 @@ module Reports
       relation = base_relation
       relation = apply_joins_and_filters(relation, dims, measures, ir["filters"])
 
-      select_parts = dims.map { |d| "#{dimension_expr(d)} AS #{quote_alias(Aliasing.dimension_alias(d))}" }
-      select_parts += measures.map { |m| "#{measure_expr(m)} AS #{quote_alias(Aliasing.measure_alias(m))}" }
-      relation = relation.select(Arel.sql(select_parts.join(", ")))
+      dim_nodes       = dims.map { |d| dimension_node(d) }
+      dim_selects     = dim_nodes.zip(dims).map { |node, d| node.as(quote_alias(Aliasing.dimension_alias(d))) }
+      measure_selects = measures.map { |m| measure_node(m).as(quote_alias(Aliasing.measure_alias(m))) }
 
-      # GROUP BY all dimensions whenever any are present (handles both the
-      # aggregated case and a bare distinct-dimension list).
-      if dims.any?
-        relation = relation.group(Arel.sql(dims.map { |d| dimension_expr(d) }.join(", ")))
-      end
-
+      relation = relation.select(*dim_selects, *measure_selects)
+      relation = relation.group(*dim_nodes) if dim_nodes.any?
       relation = apply_sort(relation, Array(ir["sort"]))
 
       explicit_limit = ir["limit"]
@@ -239,32 +240,32 @@ module Reports
       raw
     end
 
-    # --- SELECT / GROUP expressions (config-trusted identifiers) ----------
+    # --- SELECT / GROUP nodes (full Arel) ---------------------------------
 
-    def dimension_expr(dim)
+    # Returns an Arel attribute or NamedFunction node for this dimension.
+    # The same node instance is reused for both the aliased SELECT and GROUP BY.
+    def dimension_node(dim)
       field = @config.resolve(dim["field"])
-      col = qualified_column(field)
-      dim["grain"].present? ? date_trunc(dim["grain"], col) : col
+      attr = Arel::Table.new(field[:table])[field[:column]]
+      dim["grain"].present? ? @dialect.date_trunc(dim["grain"], attr) : attr
     end
 
-    def measure_expr(measure)
+    # Returns an Arel aggregate node (NamedFunction or Count) for this measure.
+    def measure_node(measure)
       fn = measure["fn"].to_s
-      return "COUNT(*)" if fn == "count"
+      return Arel::Nodes::NamedFunction.new("COUNT", [Arel.sql("*")]) if fn == "count"
 
       field = @config.resolve(measure["field"])
-      col = qualified_column(field)
-      return "COUNT(DISTINCT #{col})" if fn == "count_distinct"
+      attr  = Arel::Table.new(field[:table])[field[:column]]
 
-      "#{fn.upcase}(#{col})"
-    end
-
-    def qualified_column(field)
-      "#{@connection.quote_table_name(field[:table])}.#{@connection.quote_column_name(field[:column])}"
-    end
-
-    # Dialect-specific; isolated here behind a seam for the future multi-DB goal.
-    def date_trunc(grain, col_sql)
-      "date_trunc('#{grain}', #{col_sql})"
+      case fn
+      when "count_distinct" then Arel::Nodes::Count.new([attr], true)
+      when "sum"            then Arel::Nodes::NamedFunction.new("SUM", [attr])
+      when "avg"            then Arel::Nodes::NamedFunction.new("AVG", [attr])
+      when "min"            then Arel::Nodes::NamedFunction.new("MIN", [attr])
+      when "max"            then Arel::Nodes::NamedFunction.new("MAX", [attr])
+      else raise CompileError, "unsupported function #{fn.inspect}"
+      end
     end
 
     def quote_alias(name)
