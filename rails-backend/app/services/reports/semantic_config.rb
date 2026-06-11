@@ -55,13 +55,6 @@ module Reports
       end
     end
 
-    # Shared tokenizer: lowercase alphanumeric words. Used to build each scope's
-    # vocabulary AND to tokenize the NL query, so the resolver's lexical gate
-    # compares like with like.
-    def self.tokenize(text)
-      text.to_s.downcase.split(/[^a-z0-9]+/).reject(&:blank?)
-    end
-
     attr_reader :source_name, :dialect, :root_entity_name, :pages
 
     def initialize(raw)
@@ -158,26 +151,6 @@ module Reports
             }.compact
           end,
         }.compact
-      end
-    end
-
-    # ---- Lexical projection (Phase 1.7 resolver) -------------------------
-
-    # The distinctive token set for this scope — source name, entity names, field
-    # names/columns, and enum values. The resolver scores an NL query against each
-    # scope's vocabulary to decide whether a `hints.page` prior is being overridden
-    # by an out-of-domain question. Descriptions are intentionally excluded (noise).
-    def vocabulary
-      @vocabulary ||= begin
-        raw = [source_name]
-        @entities.each do |entity_name, data|
-          raw << entity_name << data[:table]
-          data[:fields].each do |field_name, f|
-            raw << field_name << f[:column]
-            raw.concat(Array(f[:values]).map(&:to_s))
-          end
-        end
-        raw.flat_map { |term| self.class.tokenize(term) }.to_set
       end
     end
 

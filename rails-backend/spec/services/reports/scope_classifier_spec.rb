@@ -34,14 +34,14 @@ RSpec.describe Reports::ScopeClassifier do
       end
     end
 
-    it "falls back to the first candidate when the model returns nothing usable" do
+    it "returns nil when the model returns nothing usable" do
       stub_response([double(type: "text")])
-      expect(classifier.classify("ambiguous", scopes: %w[sales inventory])).to eq("sales")
+      expect(classifier.classify("ambiguous", scopes: %w[sales inventory])).to be_nil
     end
 
-    it "falls back to the first candidate when the model returns an out-of-set scope" do
+    it "returns nil when the model returns an out-of-set scope" do
       stub_response([tool_use("scope" => "ledger")])
-      expect(classifier.classify("ambiguous", scopes: %w[sales inventory])).to eq("sales")
+      expect(classifier.classify("ambiguous", scopes: %w[sales inventory])).to be_nil
     end
   end
 end

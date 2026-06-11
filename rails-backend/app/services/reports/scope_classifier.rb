@@ -1,8 +1,8 @@
 module Reports
   # Cheap-LLM tiebreaker for the scope resolver: given an NL query and a set of
-  # candidate scopes, returns the single best-fit scope name. Only invoked when the
-  # deterministic lexical/page signal is inconclusive (a genuine tie or no signal),
-  # so most requests never reach it.
+  # candidate scopes, returns the single best-fit scope name. Only invoked when no
+  # deterministic signal (page hint) is present.
+  # Returns nil when the model cannot return a usable result; the resolver owns the fallback.
   #
   # Mirrors QueryGenerator's client + forced-tool pattern. The `client` seam lets
   # specs inject a fake instead of calling Anthropic.
@@ -17,8 +17,7 @@ module Reports
 
     # query  - the NL utterance (String)
     # scopes - candidate scope names (Array<String>)
-    # Returns one of `scopes`. Falls back to the first candidate if the model
-    # returns nothing usable, so the resolver always gets a valid scope.
+    # Returns one of `scopes`, or nil when the model returns nothing usable.
     def classify(query, scopes:)
       return scopes.first if scopes.size <= 1
 
@@ -32,7 +31,7 @@ module Reports
       )
 
       pick = extract_scope(response)
-      scopes.include?(pick) ? pick : scopes.first
+      scopes.include?(pick) ? pick : nil
     end
 
     private

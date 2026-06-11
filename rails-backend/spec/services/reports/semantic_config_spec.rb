@@ -38,14 +38,6 @@ RSpec.describe Reports::SemanticConfig do
     end
   end
 
-  describe "#vocabulary" do
-    it "collects distinctive tokens (source/entity/field/value names) for the scope" do
-      vocab = described_class.for("inventory").vocabulary
-      expect(vocab).to include("inventory", "warehouse", "product", "sku", "quantity", "available")
-      expect(vocab).not_to include("order") # a sales term, absent from inventory
-    end
-  end
-
   describe "#field" do
     it "resolves an exposed root field to column/type/roles" do
       field = config.field("order", "order_total")

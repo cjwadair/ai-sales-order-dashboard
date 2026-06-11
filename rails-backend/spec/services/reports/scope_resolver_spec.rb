@@ -4,7 +4,7 @@ RSpec.describe Reports::ScopeResolver do
   before { Reports::SemanticConfig.reset_cache! }
 
   # Fake classifier: records its calls so we can assert the LLM path is only taken
-  # on genuine ties / no-signal, and returns the first candidate deterministically.
+  # when no deterministic signal (page hint) is present. Returns scopes.first.
   let(:classifier) do
     Class.new do
       attr_reader :calls
@@ -44,34 +44,36 @@ RSpec.describe Reports::ScopeResolver do
         expect(classifier.calls).to be_empty
       end
 
-      it "overrides the page when the query is lexically pulled to another scope (gated override)" do
+      it "honors hints.page even when the query appears to be about another scope" do
         result = resolver.resolve("how much inventory is left for sku 123", hints: { "page" => "sales_orders" })
 
-        expect(result.scope).to eq("inventory")
-        expect(classifier.calls).to be_empty # a clear lexical winner needs no LLM
+        expect(result.scope).to eq("sales")
+        expect(classifier.calls).to be_empty
       end
 
-      it "ignores an unknown page and routes by the query" do
+      it "ignores an unknown page and falls through to the classifier" do
         result = resolver.resolve("orders by status this month", hints: { "page" => "no_such_page" })
 
-        expect(result.scope).to eq("sales")
+        expect(classifier.calls.size).to eq(1)
+        expect(result.ambiguous).to be(true)
+        expect(result.candidates).to contain_exactly("sales", "inventory")
       end
     end
 
     context "without a page (free-form Chat)" do
-      it "picks the dominant scope by vocabulary, no LLM" do
-        result = resolver.resolve("quantity available grouped by product category")
-
-        expect(result.scope).to eq("inventory")
-        expect(classifier.calls).to be_empty
-      end
-
       it "delegates to the classifier and marks ambiguous when there is no signal" do
         result = resolver.resolve("show me everything please")
 
         expect(classifier.calls.size).to eq(1)
         expect(result.ambiguous).to be(true)
         expect(result.candidates).to contain_exactly("sales", "inventory")
+      end
+
+      it "falls back to DEFAULT_SCOPE when the classifier returns nil" do
+        nil_classifier = Class.new { def classify(...) = nil }.new
+        result = described_class.new(classifier: nil_classifier).resolve("??")
+
+        expect(result.scope).to eq(described_class::DEFAULT_SCOPE)
       end
     end
   end
