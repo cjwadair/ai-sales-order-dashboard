@@ -60,7 +60,7 @@ module Reports
 
       case type
       when :integer then value.to_i
-      when :decimal then value.to_f
+      when :decimal then BigDecimal(value.to_s).to_s("F")
       when :date    then value.to_date.iso8601
       else value.to_s
       end

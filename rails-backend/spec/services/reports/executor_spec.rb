@@ -40,10 +40,10 @@ RSpec.describe Reports::Executor do
       { name: "revenue", type: :decimal },
     ])
     expect(envelope[:data]).to eq([
-      { "rep" => "Bob",   "revenue" => 200.0 },
-      { "rep" => "Alice", "revenue" => 150.0 },
+      { "rep" => "Bob",   "revenue" => "200.0" },
+      { "rep" => "Alice", "revenue" => "150.0" },
     ])
-    expect(envelope[:data].first["revenue"]).to be_a(Float)
+    expect(envelope[:data].first["revenue"]).to be_a(String)
   end
 
   it "reports row_count, truncation, limit, and limit_defaulted in meta" do
@@ -95,7 +95,7 @@ RSpec.describe Reports::Executor do
         ] },
       }
       envelope = executor.execute(compiler.compile(ir), ir)
-      expect(envelope[:data]).to eq([{ "revenue" => 100.0 }])
+      expect(envelope[:data]).to eq([{ "revenue" => "100.0" }])
     end
   end
 
@@ -108,7 +108,7 @@ RSpec.describe Reports::Executor do
     envelope = executor.execute(compiler.compile(pretty_ir), pretty_ir)
 
     expect(envelope[:columns].map { |c| c[:name] }).to eq(["Sales Rep", "Total Sales"])
-    expect(envelope[:data].first).to eq("Sales Rep" => "Bob", "Total Sales" => 200.0)
+    expect(envelope[:data].first).to eq("Sales Rep" => "Bob", "Total Sales" => "200.0")
   end
 
   it "casts a count measure to an integer" do

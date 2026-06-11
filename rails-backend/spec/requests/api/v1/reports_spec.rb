@@ -40,7 +40,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
         expect(response).to have_http_status(:ok)
         body = response.parsed_body
         expect(body["title"]).to eq("Sales by rep")
-        expect(body["data"]).to eq([{ "rep" => "Alice", "revenue" => 150.0 }])
+        expect(body["data"]).to eq([{ "rep" => "Alice", "revenue" => "150.0" }])
         expect(body["columns"]).to eq([
           { "name" => "rep", "type" => "string" },
           { "name" => "revenue", "type" => "decimal" },
@@ -115,7 +115,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
         stub_generator(sales_by_rep_ir)
         post_query(scope: "ledger", source: "ledger")
         expect(response).to have_http_status(:ok)
-        expect(response.parsed_body["data"]).to eq([{ "rep" => "Alice", "revenue" => 100.0 }])
+        expect(response.parsed_body["data"]).to eq([{ "rep" => "Alice", "revenue" => "100.0" }])
       end
     end
 
@@ -198,7 +198,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
       post "/api/v1/reports/orders_query", params: { query: "sales by rep" }, as: :json
 
       expect(response).to have_http_status(:ok)
-      expect(response.parsed_body["data"]).to eq([{ "rep" => "Alice", "revenue" => 100.0 }])
+      expect(response.parsed_body["data"]).to eq([{ "rep" => "Alice", "revenue" => "100.0" }])
     end
 
     # An out-of-domain question can't reference foreign fields (enums are generated
