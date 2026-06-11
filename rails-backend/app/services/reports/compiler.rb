@@ -24,8 +24,7 @@ module Reports
       measures = Array(ir["measures"])
 
       relation = base_relation
-      relation = apply_joins(relation, dims, measures, ir["filters"])
-      relation = relation.where(build_filter(ir["filters"])) if ir["filters"].present?
+      relation = apply_joins_and_filters(relation, dims, measures, ir["filters"])
 
       select_parts = dims.map { |d| "#{dimension_expr(d)} AS #{quote_alias(Aliasing.dimension_alias(d))}" }
       select_parts += measures.map { |m| "#{measure_expr(m)} AS #{quote_alias(Aliasing.measure_alias(m))}" }
@@ -57,14 +56,104 @@ module Reports
       root_model.all
     end
 
+    # Applies joins and WHERE conditions together so EXISTS entities can skip a JOIN.
+    # has_many entities referenced only in filters get a correlated EXISTS subquery
+    # instead of a JOIN — this avoids row-multiplication on root-side aggregates.
+    def apply_joins_and_filters(relation, dims, measures, filters)
+      exists_candidates = filter_only_has_many_entities(dims, measures, filters)
+
+      if exists_candidates.any? && filters.present?
+        regular_node, exists_map = split_filter_tree(filters, exists_candidates.to_set)
+        relation = apply_joins(relation, dims, measures, filters, skip: exists_map.keys.to_set)
+        relation = relation.where(build_filter(regular_node)) if regular_node.present?
+        exists_map.each { |entity_name, conds| relation = relation.where(build_exists(entity_name, conds)) }
+      else
+        relation = apply_joins(relation, dims, measures, filters)
+        relation = relation.where(build_filter(filters)) if filters.present?
+      end
+
+      relation
+    end
+
+    # has_many entities whose fields appear only in filters, not dims/measures.
+    def filter_only_has_many_entities(dims, measures, filters)
+      return [] if filters.blank?
+
+      dim_measure_entities = (
+        dims.filter_map { |d| @config.resolve(d["field"])&.dig(:entity) } +
+        measures.filter_map { |m| m["field"].present? ? @config.resolve(m["field"])&.dig(:entity) : nil }
+      ).reject { |e| @config.root?(e) }.to_set
+
+      filter_field_refs(filters)
+        .filter_map { |ref| @config.resolve(ref)&.dig(:entity) }
+        .reject { |e| @config.root?(e) }
+        .uniq
+        .select { |e| !dim_measure_entities.include?(e) && @config.relationship(e)&.dig(:kind) == :has_many }
+    end
+
+    # Recursively splits a filter tree into (kept_for_WHERE, entity=>[conditions]).
+    # AND groups: item conditions are extracted. OR groups: if any child is extracted
+    # the whole OR is left intact (can't partially satisfy an OR with EXISTS).
+    def split_filter_tree(node, exists_entity_names)
+      return [node, {}] unless node.is_a?(Hash)
+
+      if node.key?("conditions")
+        op = node["op"].to_s
+        kept_children = []
+        all_extracted = {}
+
+        Array(node["conditions"]).each do |child|
+          kept, extracted = split_filter_tree(child, exists_entity_names)
+          if op == "or" && extracted.any?
+            return [node, {}]
+          end
+          kept_children << kept unless kept.nil?
+          extracted.each { |k, v| (all_extracted[k] ||= []).concat(v) }
+        end
+
+        kept_node = case kept_children.size
+                    when 0 then nil
+                    when 1 then kept_children.first
+                    else node.merge("conditions" => kept_children)
+                    end
+        [kept_node, all_extracted]
+      elsif node.key?("field")
+        field = @config.resolve(node["field"])
+        entity_name = field&.dig(:entity)
+        if exists_entity_names.include?(entity_name)
+          [nil, { entity_name => [node] }]
+        else
+          [node, {}]
+        end
+      else
+        [node, {}]
+      end
+    end
+
+    # Correlated EXISTS subquery for a filter-only has_many entity.
+    # SELECT 1 FROM <target_table> WHERE <fk> = <root_pk> AND <conditions>
+    def build_exists(entity_name, conditions)
+      rel = @config.relationship(entity_name)
+      target_table = Arel::Table.new(rel[:table])
+      root_table = Arel::Table.new(@config.root_entity[:table])
+
+      fk_pred = target_table[rel[:foreign_key]].eq(root_table[@config.root_entity[:primary_key]])
+      item_preds = conditions.map { |c| condition_predicate(c) }
+      all_preds = ([fk_pred] + item_preds).inject(:and)
+
+      subquery = target_table.project(Arel.sql("1")).where(all_preds)
+      Arel::Nodes::Exists.new(subquery)
+    end
+
     def root_model
       @root_model ||= @config.root_entity[:table].classify.constantize
     end
 
     # --- joins ------------------------------------------------------------
 
-    def apply_joins(relation, dims, measures, filters)
-      entities = referenced_entities(dims, measures, filters)
+    def apply_joins(relation, dims, measures, filters, skip: [])
+      skip_set = skip.to_set
+      entities = referenced_entities(dims, measures, filters).reject { |e| skip_set.include?(e) }
       associations = entities.map do |entity_name|
         rel = @config.relationship(entity_name)
         raise CompileError, "no relationship to #{entity_name.inspect}" unless rel

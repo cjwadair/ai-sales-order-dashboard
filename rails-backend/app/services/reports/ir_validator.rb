@@ -43,6 +43,7 @@ module Reports
 
       dims.each { |d| validate_dimension(d) }
       measures.each { |m| validate_measure(m) }
+      validate_fan_out_safety(dims, measures)
       validate_filters(ir["filters"]) if ir["filters"].present?
       validate_sort(ir["sort"], declared_aliases(dims, measures)) if ir["sort"].present?
       validate_limit(ir["limit"]) if ir.key?("limit")
@@ -201,6 +202,48 @@ module Reports
           add("sort ref #{ref.inspect} does not match any declared dimension or measure alias")
         end
       end
+    end
+
+    # Rule: if any has_many entity appears in dimensions or measures, then sum/avg
+    # on a root-side field is corrupted (each root row is repeated once per matching
+    # item). min/max are duplication-safe and are allowed. Many-side measures (fields
+    # on the has_many entity) are always correct.
+    def validate_fan_out_safety(dims, measures)
+      has_many_entities = (
+        dims.filter_map { |d| has_many_entity_for(d["field"]) } +
+        measures.filter_map { |m| has_many_entity_for(m["field"]) }
+      ).uniq
+
+      return if has_many_entities.empty?
+
+      measures.each do |m|
+        fn = m["fn"].to_s
+        next unless %w[sum avg].include?(fn)
+        ref = m["field"].to_s
+        next if ref.blank?
+        field = @config.resolve(ref)
+        next unless field && @config.root?(field[:entity])
+
+        example = example_measure_field(has_many_entities.first)
+        add("cannot #{fn} `#{ref}` while grouping/filtering by line-item fields: " \
+            "each order would be counted once per item; " \
+            "measure an item field (e.g. `#{example}`) instead")
+      end
+    end
+
+    def has_many_entity_for(ref)
+      return nil if ref.blank?
+      entity_name = @config.resolve(ref)&.dig(:entity)
+      return nil if entity_name.nil? || @config.root?(entity_name)
+      rel = @config.relationship(entity_name)
+      entity_name if rel&.dig(:kind) == :has_many
+    end
+
+    def example_measure_field(entity_name)
+      entity = @config.entity(entity_name)
+      return "#{entity_name}.field" unless entity
+      f = entity[:fields].values.find { |fld| fld[:roles].include?(:measure) }
+      f ? f[:ref] : "#{entity_name}.field"
     end
 
     def validate_limit(limit)

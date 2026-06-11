@@ -148,6 +148,57 @@ RSpec.describe Reports::IrValidator do
     end
   end
 
+  describe "fan-out safety (has_many in dims/measures)" do
+    let(:item_dim_ir) do
+      valid_ir.merge(
+        "dimensions" => [{ "field" => "sales_order_item.description", "as" => "item" }],
+        "sort" => [{ "ref" => "item", "direction" => "asc" }],
+      ).except("measures")
+    end
+
+    it "rejects sum on a root field when a has_many entity is in dimensions" do
+      ir = item_dim_ir.merge("measures" => [{
+        "fn" => "sum", "field" => "order_total", "as" => "revenue",
+      }]).except("sort")
+      errors = validator.validate(ir)
+      expect(errors).to include(/cannot sum `order_total` while grouping\/filtering by line-item fields/)
+      expect(errors.first).to include("measure an item field")
+    end
+
+    it "rejects avg on a root field for the same reason" do
+      ir = item_dim_ir.merge("measures" => [{
+        "fn" => "avg", "field" => "order_total", "as" => "avg_rev",
+      }]).except("sort")
+      expect(validator.validate(ir)).to include(/cannot avg `order_total`/)
+    end
+
+    it "allows min on a root field (duplication-safe)" do
+      ir = item_dim_ir.merge("measures" => [{
+        "fn" => "min", "field" => "order_total", "as" => "min_rev",
+      }]).except("sort")
+      expect(validator.validate(ir)).to eq([])
+    end
+
+    it "allows max on a root field (duplication-safe)" do
+      ir = item_dim_ir.merge("measures" => [{
+        "fn" => "max", "field" => "order_total", "as" => "max_rev",
+      }]).except("sort")
+      expect(validator.validate(ir)).to eq([])
+    end
+
+    it "allows sum on a many-side (item) field — measuring at the correct grain" do
+      ir = item_dim_ir.merge("measures" => [{
+        "fn" => "sum", "field" => "sales_order_item.item_total", "as" => "total",
+      }]).except("sort")
+      expect(validator.validate(ir)).to eq([])
+    end
+
+    it "does not trigger for belongs_to entities (no row multiplication)" do
+      ir = valid_ir  # sales_rep is belongs_to; sum(order_total) is fine
+      expect(validator.validate(ir)).to eq([])
+    end
+  end
+
   describe "sort" do
     it "rejects a sort ref that is not a declared alias" do
       ir = valid_ir.merge("sort" => [{ "ref" => "profit", "direction" => "desc" }])

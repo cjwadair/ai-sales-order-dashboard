@@ -93,6 +93,51 @@ RSpec.describe Reports::Compiler do
     end
   end
 
+  describe "has_many filter-only: EXISTS instead of JOIN" do
+    let(:item_filter_ir) do
+      {
+        "source"   => "order",
+        "measures" => [{ "fn" => "sum", "field" => "order_total", "as" => "revenue" }],
+        "filters"  => { "op" => "and", "conditions" => [
+          { "field" => "sales_order_item.sku", "op" => "eq", "value" => 1 },
+        ] },
+      }
+    end
+
+    it "emits EXISTS instead of a JOIN when the has_many entity is filter-only" do
+      sql = compiler.compile(item_filter_ir).relation.to_sql
+      expect(sql).to include("EXISTS")
+      expect(sql).not_to match(/JOIN.*sales_order_items/i)
+    end
+
+    it "includes the FK and item condition inside the EXISTS subquery" do
+      sql = compiler.compile(item_filter_ir).relation.to_sql
+      expect(sql).to include('"sales_order_items"."sales_order_id" = "sales_orders"."id"')
+      expect(sql).to include('"sales_order_items"."sku"')
+    end
+
+    it "still uses a JOIN when the has_many entity is in dimensions" do
+      ir = {
+        "source"     => "order",
+        "dimensions" => [{ "field" => "sales_order_item.description", "as" => "item" }],
+        "measures"   => [{ "fn" => "sum", "field" => "sales_order_item.item_total", "as" => "total" }],
+      }
+      sql = compiler.compile(ir).relation.to_sql
+      expect(sql).to match(/INNER JOIN "sales_order_items"/i)
+      expect(sql).not_to include("EXISTS")
+    end
+
+    it "keeps non-item filter conditions in the main WHERE" do
+      ir = item_filter_ir.merge("filters" => { "op" => "and", "conditions" => [
+        { "field" => "sales_order_item.sku", "op" => "eq", "value" => 1 },
+        { "field" => "order_date", "op" => "gte", "value" => "2024-01-01" },
+      ] })
+      sql = compiler.compile(ir).relation.to_sql
+      expect(sql).to include("EXISTS")
+      expect(sql).to include('"sales_orders"."order_date"')
+    end
+  end
+
   describe "filter operators" do
     def where_sql(condition)
       ir = { "source" => "order", "measures" => [{ "fn" => "count" }],

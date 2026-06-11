@@ -73,6 +73,32 @@ RSpec.describe Reports::Executor do
     expect(envelope[:meta][:row_count]).to eq(0)
   end
 
+  describe "EXISTS fan-out correctness" do
+    it "does not inflate sum(order_total) when an order has multiple matching items" do
+      # Order A has 2 items with sku=1 and order_total=100.
+      # A naive JOIN would double-count A's total → 200. EXISTS must give 100.
+      order_a = create(:sales_order, :with_consignee, :with_supplier, :with_warehouse,
+                       sales_rep: alice, order_total: 100, order_date: Date.current)
+      create(:sales_order_item, :with_product, sales_order: order_a, sku: 1)
+      create(:sales_order_item, :with_product, sales_order: order_a, sku: 1)
+
+      # Order B has one item with sku=2 — should not appear in results.
+      order_b = create(:sales_order, :with_consignee, :with_supplier, :with_warehouse,
+                       sales_rep: bob, order_total: 50, order_date: Date.current)
+      create(:sales_order_item, :with_product, sales_order: order_b, sku: 2)
+
+      ir = {
+        "source"   => "order",
+        "measures" => [{ "fn" => "sum", "field" => "order_total", "as" => "revenue" }],
+        "filters"  => { "op" => "and", "conditions" => [
+          { "field" => "sales_order_item.sku", "op" => "eq", "value" => 1 },
+        ] },
+      }
+      envelope = executor.execute(compiler.compile(ir), ir)
+      expect(envelope[:data]).to eq([{ "revenue" => 100.0 }])
+    end
+  end
+
   it "round-trips a human-readable alias through SQL into the JSON keys" do
     pretty_ir = ir.merge(
       "dimensions" => [{ "field" => "sales_rep.name", "as" => "Sales Rep" }],
