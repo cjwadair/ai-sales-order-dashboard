@@ -34,18 +34,18 @@ module Reports
       ir = ir || {}
 
       validate_source(ir["source"])
-      dims     = Array(ir["dimensions"])
+      dimensions     = Array(ir["dimensions"])
       measures = Array(ir["measures"])
 
-      if dims.empty? && measures.empty?
+      if dimensions.empty? && measures.empty?
         add("query must declare at least one dimension or measure")
       end
 
-      dims.each { |d| validate_dimension(d) }
+      dimensions.each { |d| validate_dimension(d) }
       measures.each { |m| validate_measure(m) }
-      validate_fan_out_safety(dims, measures)
+      validate_fan_out_safety(dimensions, measures)
       validate_filters(ir["filters"]) if ir["filters"].present?
-      validate_sort(ir["sort"], declared_aliases(dims, measures)) if ir["sort"].present?
+      validate_sort(ir["sort"], declared_aliases(dimensions, measures)) if ir["sort"].present?
       validate_limit(ir["limit"]) if ir.key?("limit")
 
       @errors
@@ -208,9 +208,9 @@ module Reports
     # on a root-side field is corrupted (each root row is repeated once per matching
     # item). min/max are duplication-safe and are allowed. Many-side measures (fields
     # on the has_many entity) are always correct.
-    def validate_fan_out_safety(dims, measures)
+    def validate_fan_out_safety(dimensions, measures)
       has_many_entities = (
-        dims.filter_map { |d| has_many_entity_for(d["field"]) } +
+        dimensions.filter_map { |d| has_many_entity_for(d["field"]) } +
         measures.filter_map { |m| has_many_entity_for(m["field"]) }
       ).uniq
 
@@ -252,8 +252,8 @@ module Reports
       end
     end
 
-    def declared_aliases(dims, measures)
-      dims.map { |d| Aliasing.dimension_alias(d) } +
+    def declared_aliases(dimensions, measures)
+      dimensions.map { |d| Aliasing.dimension_alias(d) } +
         measures.map { |m| Aliasing.measure_alias(m) }
     end
   end

@@ -25,14 +25,14 @@ module Reports
 
     def compile(ir)
       @ir = ir
-      dims     = Array(ir["dimensions"])
+      dimensions = Array(ir["dimensions"])
       measures = Array(ir["measures"])
 
       relation = base_relation
-      relation = apply_joins_and_filters(relation, dims, measures, ir["filters"])
+      relation = apply_joins_and_filters(relation, dimensions, measures, ir["filters"])
 
-      dim_nodes       = dims.map { |d| dimension_node(d) }
-      dim_selects     = dim_nodes.zip(dims).map { |node, d| node.as(quote_alias(Aliasing.dimension_alias(d))) }
+      dim_nodes       = dimensions.map { |d| dimension_node(d) }
+      dim_selects     = dim_nodes.zip(dimensions).map { |node, d| node.as(quote_alias(Aliasing.dimension_alias(d))) }
       measure_selects = measures.map { |m| measure_node(m).as(quote_alias(Aliasing.measure_alias(m))) }
 
       relation = relation.select(*dim_selects, *measure_selects)
@@ -42,11 +42,11 @@ module Reports
       explicit_limit = ir["limit"]
       if explicit_limit.present?
         relation = relation.limit(explicit_limit)
-        CompiledQuery.new(relation: relation, columns: columns_for(dims, measures),
+        CompiledQuery.new(relation: relation, columns: columns_for(dimensions, measures),
                           applied_limit: explicit_limit, limit_defaulted: false)
       else
         relation = relation.limit(IrValidator::MAX_LIMIT)
-        CompiledQuery.new(relation: relation, columns: columns_for(dims, measures),
+        CompiledQuery.new(relation: relation, columns: columns_for(dimensions, measures),
                           applied_limit: IrValidator::MAX_LIMIT, limit_defaulted: true)
       end
     end
@@ -60,28 +60,28 @@ module Reports
     # Applies joins and WHERE conditions together so EXISTS entities can skip a JOIN.
     # has_many entities referenced only in filters get a correlated EXISTS subquery
     # instead of a JOIN — this avoids row-multiplication on root-side aggregates.
-    def apply_joins_and_filters(relation, dims, measures, filters)
-      exists_candidates = filter_only_has_many_entities(dims, measures, filters)
+    def apply_joins_and_filters(relation, dimensions, measures, filters)
+      exists_candidates = filter_only_has_many_entities(dimensions, measures, filters)
 
       if exists_candidates.any? && filters.present?
         regular_node, exists_map = split_filter_tree(filters, exists_candidates.to_set)
-        relation = apply_joins(relation, dims, measures, filters, skip: exists_map.keys.to_set)
+        relation = apply_joins(relation, dimensions, measures, filters, skip: exists_map.keys.to_set)
         relation = relation.where(build_filter(regular_node)) if regular_node.present?
         exists_map.each { |entity_name, conds| relation = relation.where(build_exists(entity_name, conds)) }
       else
-        relation = apply_joins(relation, dims, measures, filters)
+        relation = apply_joins(relation, dimensions, measures, filters)
         relation = relation.where(build_filter(filters)) if filters.present?
       end
 
       relation
     end
 
-    # has_many entities whose fields appear only in filters, not dims/measures.
-    def filter_only_has_many_entities(dims, measures, filters)
+    # has_many entities whose fields appear only in filters, not dimensions/measures.
+    def filter_only_has_many_entities(dimensions, measures, filters)
       return [] if filters.blank?
 
       dim_measure_entities = (
-        dims.filter_map { |d| @config.resolve(d["field"])&.dig(:entity) } +
+        dimensions.filter_map { |d| @config.resolve(d["field"])&.dig(:entity) } +
         measures.filter_map { |m| m["field"].present? ? @config.resolve(m["field"])&.dig(:entity) : nil }
       ).reject { |e| @config.root?(e) }.to_set
 
@@ -152,9 +152,9 @@ module Reports
 
     # --- joins ------------------------------------------------------------
 
-    def apply_joins(relation, dims, measures, filters, skip: [])
+    def apply_joins(relation, dimensions, measures, filters, skip: [])
       skip_set = skip.to_set
-      entities = referenced_entities(dims, measures, filters).reject { |e| skip_set.include?(e) }
+      entities = referenced_entities(dimensions, measures, filters).reject { |e| skip_set.include?(e) }
       associations = entities.map do |entity_name|
         rel = @config.relationship(entity_name)
         raise CompileError, "no relationship to #{entity_name.inspect}" unless rel
@@ -163,8 +163,8 @@ module Reports
       associations.uniq.inject(relation) { |r, assoc| r.joins(assoc) }
     end
 
-    def referenced_entities(dims, measures, filters)
-      refs = dims.map { |d| d["field"] }
+    def referenced_entities(dimensions, measures, filters)
+      refs = dimensions.map { |d| d["field"] }
       refs += measures.map { |m| m["field"] }.compact
       refs += filter_field_refs(filters)
       refs.compact.filter_map { |ref| @config.resolve(ref)&.dig(:entity) }
@@ -283,8 +283,8 @@ module Reports
 
     # --- output column metadata ------------------------------------------
 
-    def columns_for(dims, measures)
-      cols = dims.map do |d|
+    def columns_for(dimensions, measures)
+      cols = dimensions.map do |d|
         field = @config.resolve(d["field"])
         { name: Aliasing.dimension_alias(d), type: d["grain"].present? ? :date : field[:type] }
       end
