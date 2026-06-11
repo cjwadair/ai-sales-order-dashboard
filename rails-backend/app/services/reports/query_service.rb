@@ -1,14 +1,15 @@
 module Reports
   # Orchestrates one NL -> report request end to end: generate IR -> validate ->
-  # compile -> execute, mapping each outcome onto the Phase 1 HTTP taxonomy (see
-  # plan ref D). Expected outcomes are returned as a Result (never raised), so
-  # the controller can render them directly and ApplicationController's generic
-  # error handling never intercepts this endpoint's contract.
+  # compile -> execute, mapping each outcome onto the HTTP taxonomy below.
+  # Expected outcomes are returned as a Result (never raised), so the controller
+  # can render them directly and ApplicationController's generic error handling
+  # never intercepts this endpoint's contract.
   #
   #   rows / empty / unsupported_note -> 200 (success envelope)
   #   semantic validation failed       -> 422 validation_failed
   #   unknown scope / bad input        -> 400 bad_request
   #   AI generation failure            -> 502 upstream_error
+  #   query exceeded statement timeout -> 504 timeout
   #   anything unexpected (defensive)  -> 500 internal
   class QueryService
     Result = Struct.new(:status, :body, keyword_init: true)
@@ -48,6 +49,8 @@ module Reports
       bad_request(e.message)
     rescue QueryGenerator::GenerationError, Anthropic::Errors::Error => e
       upstream_error(e.message)
+    rescue ActiveRecord::QueryCanceled
+      timeout_error
     rescue StandardError => e
       internal_error(e)
     end
@@ -69,6 +72,10 @@ module Reports
 
     def upstream_error(message)
       error_result(:bad_gateway, "upstream_error", "could not generate a query: #{message}")
+    end
+
+    def timeout_error
+      error_result(:gateway_timeout, "timeout", "the query took too long to execute")
     end
 
     def internal_error(error)

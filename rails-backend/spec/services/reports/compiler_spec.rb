@@ -54,6 +54,31 @@ RSpec.describe Reports::Compiler do
     end
   end
 
+  describe "default limit guardrail" do
+    it "applies MAX_LIMIT when the IR has no limit, and flags limit_defaulted" do
+      ir = {
+        "source"   => "order",
+        "measures" => [{ "fn" => "count", "as" => "n" }],
+      }
+      compiled = compiler.compile(ir)
+      expect(compiled.relation.to_sql).to match(/LIMIT #{Reports::IrValidator::MAX_LIMIT}\b/)
+      expect(compiled.applied_limit).to eq(Reports::IrValidator::MAX_LIMIT)
+      expect(compiled.limit_defaulted).to be(true)
+    end
+
+    it "uses the explicit limit when one is present and does not flag limit_defaulted" do
+      ir = {
+        "source"   => "order",
+        "measures" => [{ "fn" => "count", "as" => "n" }],
+        "limit"    => 50,
+      }
+      compiled = compiler.compile(ir)
+      expect(compiled.relation.to_sql).to match(/LIMIT 50\b/)
+      expect(compiled.applied_limit).to eq(50)
+      expect(compiled.limit_defaulted).to be(false)
+    end
+  end
+
   describe "date grain" do
     it "wraps a dated dimension in date_trunc and groups by it" do
       ir = {

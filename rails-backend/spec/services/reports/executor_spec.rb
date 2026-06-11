@@ -46,12 +46,22 @@ RSpec.describe Reports::Executor do
     expect(envelope[:data].first["revenue"]).to be_a(Float)
   end
 
-  it "reports row_count and truncation in meta" do
+  it "reports row_count, truncation, limit, and limit_defaulted in meta" do
     envelope = executor.execute(compiler.compile(ir), ir)
     expect(envelope[:meta][:row_count]).to eq(2)
-    expect(envelope[:meta][:truncated]).to be(false)
+    expect(envelope[:meta][:truncated]).to be(false)         # 2 rows < limit 5
+    expect(envelope[:meta][:limit]).to eq(5)
+    expect(envelope[:meta][:limit_defaulted]).to be(false)   # explicit limit in IR
     expect(envelope[:meta][:unsupported_note]).to be_nil
     expect(envelope[:meta][:sql_debug]).to include("SUM")
+  end
+
+  it "applies the default MAX_LIMIT when IR has no limit and sets limit_defaulted: true" do
+    limitless_ir = ir.except("limit").merge("title" => "no limit")
+    envelope = executor.execute(compiler.compile(limitless_ir), limitless_ir)
+    expect(envelope[:meta][:limit]).to eq(Reports::IrValidator::MAX_LIMIT)
+    expect(envelope[:meta][:limit_defaulted]).to be(true)
+    expect(envelope[:meta][:truncated]).to be(false) # only 2 rows
   end
 
   it "treats an empty result as success, not an error" do

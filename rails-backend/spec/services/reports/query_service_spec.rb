@@ -38,6 +38,21 @@ RSpec.describe Reports::QueryService do
       expect(result.body[:data]).to eq([{ "n" => 0 }])
     end
 
+    it "maps a statement timeout (QueryCanceled) to 504 with code 'timeout'" do
+      ir = { "source" => "order", "measures" => [{ "fn" => "count", "as" => "n" }] }
+      allow(ActiveRecord::Base.connection).to receive(:select_all)
+        .and_raise(ActiveRecord::QueryCanceled)
+
+      result = described_class.new(
+        query: "how many orders",
+        scope: "sales",
+        generator: canned_generator(ir),
+      ).call
+
+      expect(result.status).to eq(:gateway_timeout)
+      expect(result.body.dig(:error, :code)).to eq("timeout")
+    end
+
     it "forwards scope, history, and hints to the generator" do
       ir = { "source" => "order", "measures" => [{ "fn" => "count", "as" => "n" }] }
       generator = canned_generator(ir)

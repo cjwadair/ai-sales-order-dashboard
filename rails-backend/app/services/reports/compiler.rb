@@ -9,7 +9,7 @@ module Reports
   #
   # Assumes the IR already passed IrValidator. Returns a CompiledQuery.
   class Compiler
-    CompiledQuery = Struct.new(:relation, :columns, keyword_init: true)
+    CompiledQuery = Struct.new(:relation, :columns, :applied_limit, :limit_defaulted, keyword_init: true)
 
     class CompileError < StandardError; end
 
@@ -38,9 +38,17 @@ module Reports
       end
 
       relation = apply_sort(relation, Array(ir["sort"]))
-      relation = relation.limit(ir["limit"]) if ir["limit"].present?
 
-      CompiledQuery.new(relation: relation, columns: columns_for(dims, measures))
+      explicit_limit = ir["limit"]
+      if explicit_limit.present?
+        relation = relation.limit(explicit_limit)
+        CompiledQuery.new(relation: relation, columns: columns_for(dims, measures),
+                          applied_limit: explicit_limit, limit_defaulted: false)
+      else
+        relation = relation.limit(IrValidator::MAX_LIMIT)
+        CompiledQuery.new(relation: relation, columns: columns_for(dims, measures),
+                          applied_limit: IrValidator::MAX_LIMIT, limit_defaulted: true)
+      end
     end
 
     private

@@ -40,5 +40,7 @@ module OrderManagementApi
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+
+    config.x.reports.statement_timeout_ms = ENV.fetch("REPORTS_STATEMENT_TIMEOUT_MS", "5000").to_i
   end
 end
