@@ -1,8 +1,8 @@
 require 'rails_helper'
 
-RSpec.describe Reports::Executor do
+RSpec.describe Reports::QueryExecutor do
   let(:config) { Reports::SemanticConfig.for("sales") }
-  let(:compiler) { Reports::Compiler.new(config) }
+  let(:compiler) { Reports::IrCompiler.new(config) }
   subject(:executor) { described_class.new }
 
   before { Reports::SemanticConfig.reset_cache! }

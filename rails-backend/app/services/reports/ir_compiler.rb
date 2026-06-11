@@ -12,7 +12,7 @@ module Reports
   # Dialect-specific SQL (date_trunc) lives in Reports::SqlAdapter.
   #
   # Assumes the IR already passed IrValidator. Returns a CompiledQuery.
-  class Compiler
+  class IrCompiler
     CompiledQuery = Struct.new(:relation, :columns, :applied_limit, :limit_defaulted, keyword_init: true)
 
     class CompileError < StandardError; end

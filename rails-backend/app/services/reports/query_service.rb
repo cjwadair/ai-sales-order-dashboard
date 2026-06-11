@@ -41,8 +41,8 @@ module Reports
       errors = IrValidator.new(config).validate(ir)
       return validation_failed(errors) if errors.any?
 
-      compiled = Compiler.new(config).compile(ir)
-      envelope = Executor.new.execute(compiled, ir)
+      compiled = IrCompiler.new(config).compile(ir)
+      envelope = QueryExecutor.new.execute(compiled, ir)
       envelope[:meta][:query_scoping] = @scope_resolution if @scope_resolution
       Result.new(status: :ok, body: envelope)
     rescue SemanticConfig::ConfigError => e

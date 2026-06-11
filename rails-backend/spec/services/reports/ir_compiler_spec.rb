@@ -1,6 +1,6 @@
 require 'rails_helper'
 
-RSpec.describe Reports::Compiler do
+RSpec.describe Reports::IrCompiler do
   let(:config) { Reports::SemanticConfig.for("sales") }
   subject(:compiler) { described_class.new(config) }
 

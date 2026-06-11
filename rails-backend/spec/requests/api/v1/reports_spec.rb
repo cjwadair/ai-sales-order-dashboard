@@ -223,7 +223,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
     context "execution blows up unexpectedly" do
       before do
         stub_generator(sales_by_rep_ir)
-        allow_any_instance_of(Reports::Executor).to receive(:execute).and_raise(StandardError, "boom")
+        allow_any_instance_of(Reports::QueryExecutor).to receive(:execute).and_raise(StandardError, "boom")
       end
 
       it "returns 500 internal" do

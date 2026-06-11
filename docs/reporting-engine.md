@@ -41,10 +41,10 @@ NL query (+ client-threaded history, + advisory hints)
    ▼
 [2] Validate IR against the config             Reports::IrValidator   → 422 on failure
    ▼
-[3] Compile to a parameterized relation        Reports::Compiler      — joins from the curated
+[3] Compile to a parameterized relation        Reports::IrCompiler      — joins from the curated
                                                FK graph; values bound via Arel
    ▼
-[4] Execute + shape the envelope               Reports::Executor      → { spec, title, data,
+[4] Execute + shape the envelope               Reports::QueryExecutor      → { spec, title, data,
                                                columns:[{name,type}], meta }
 ```
 

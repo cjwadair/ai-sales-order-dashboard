@@ -13,7 +13,7 @@ module Reports
   # read from Rails.application.config.x.reports.statement_timeout_ms
   # (configured in application.rb, overridable via REPORTS_STATEMENT_TIMEOUT_MS env).
   # ActiveRecord::QueryCanceled propagates to QueryService which maps it to 504.
-  class Executor
+  class QueryExecutor
     def execute(compiled, ir)
       sql = compiled.relation.to_sql
       conn = ActiveRecord::Base.connection
