@@ -8,16 +8,16 @@ class Api::V1::ReportsController < ApplicationController
   # POST /api/v1/reports/query
   # Generic ("ask anything" / Chat) endpoint: the scope resolver routes the request to
   # exactly one configured scope (Phase 1.7), then the shared pipeline runs. The chosen
-  # scope + any ambiguity is surfaced in meta.routing.
+  # scope + any ambiguity is surfaced in meta.query_scoping.
   def query
     return if reject_blank_query
 
-    resolution = Reports::ScopeResolver.new.resolve(params[:query].to_s.strip, hints: hints_param)
-    run_scoped_query(scope: resolution.scope, routing: resolution)
+    resolved_scope = Reports::ScopeResolver.new.resolve(params[:query].to_s.strip, hints: hints_param)
+    run_scoped_query(scope: resolved_scope.scope, scope_resolution: resolved_scope)
   end
 
   # POST /api/v1/reports/orders_query
-  # Focused sales endpoint backing the Orders surface — scope is fixed; the routing
+  # Focused sales endpoint backing the Orders surface — scope is fixed; the page
   # hint (hints.page) is stripped so it can't leak a cross-scope signal.
   def orders_query
     run_scoped_query(scope: "sales", strip_page_hint: true)

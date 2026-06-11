@@ -4,11 +4,11 @@ RSpec.describe "Api::V1::Reports", type: :request do
   # Stub the AI generator so request specs are deterministic and offline; the
   # generator itself is unit-tested separately (with one live check).
   def stub_generator(ir)
-    allow_any_instance_of(Reports::QueryGenerator).to receive(:generate).and_return(ir)
+    allow_any_instance_of(Reports::IrGenerator).to receive(:generate).and_return(ir)
   end
 
   def stub_generator_raise(error)
-    allow_any_instance_of(Reports::QueryGenerator).to receive(:generate).and_raise(error)
+    allow_any_instance_of(Reports::IrGenerator).to receive(:generate).and_raise(error)
   end
 
   let(:sales_by_rep_ir) do
@@ -127,7 +127,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
 
       it "forwards known hint keys to the generator" do
         hints = { "page" => "sales_orders", "filters" => { "order_status" => "open" } }
-        expect_any_instance_of(Reports::QueryGenerator)
+        expect_any_instance_of(Reports::IrGenerator)
           .to receive(:generate)
           .with("the big ones", history: [], hints: hints)
           .and_return(sales_by_rep_ir)
@@ -140,7 +140,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
       end
 
       it "strips unknown top-level hint keys before forwarding to the generator" do
-        expect_any_instance_of(Reports::QueryGenerator)
+        expect_any_instance_of(Reports::IrGenerator)
           .to receive(:generate)
           .with(anything, history: anything, hints: { "page" => "sales_orders" })
           .and_return(sales_by_rep_ir)
@@ -154,7 +154,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
 
       it "caps hints.page at #{Reports::ScopedQuery::PAGE_HINT_MAX} characters" do
         long_page = "x" * 200
-        expect_any_instance_of(Reports::QueryGenerator)
+        expect_any_instance_of(Reports::IrGenerator)
           .to receive(:generate)
           .with(anything, history: anything, hints: { "page" => "x" * Reports::ScopedQuery::PAGE_HINT_MAX })
           .and_return(sales_by_rep_ir)
@@ -167,7 +167,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
       end
 
       it "strips deeply nested objects from hints.filters, keeping scalar values" do
-        expect_any_instance_of(Reports::QueryGenerator)
+        expect_any_instance_of(Reports::IrGenerator)
           .to receive(:generate)
           .with(anything, history: anything, hints: { "filters" => { "status" => "open" } })
           .and_return(sales_by_rep_ir)
@@ -181,7 +181,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
 
       it "allows a { relative: string } date hint in filters" do
         expected_hints = { "filters" => { "order_date" => { "relative" => "year_start" } } }
-        expect_any_instance_of(Reports::QueryGenerator)
+        expect_any_instance_of(Reports::IrGenerator)
           .to receive(:generate)
           .with(anything, history: anything, hints: expected_hints)
           .and_return(sales_by_rep_ir)
@@ -196,7 +196,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
       it "caps hints.filters at #{Reports::ScopedQuery::FILTERS_MAX_KEYS} keys" do
         many_filters = (1..30).each_with_object({}) { |i, h| h["key_#{i}"] = "v" }
 
-        expect_any_instance_of(Reports::QueryGenerator)
+        expect_any_instance_of(Reports::IrGenerator)
           .to receive(:generate) do |_, _, history:, hints:|
             expect(hints["filters"].keys.size).to be <= Reports::ScopedQuery::FILTERS_MAX_KEYS
             sales_by_rep_ir
@@ -211,7 +211,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
     end
 
     context "AI generation fails" do
-      before { stub_generator_raise(Reports::QueryGenerator::GenerationError.new("no tool call")) }
+      before { stub_generator_raise(Reports::IrGenerator::GenerationError.new("no tool call")) }
 
       it "returns 502 upstream_error" do
         post_query
@@ -241,7 +241,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
 
       it "passes prior turns to the generator as history" do
         history = [{ "query" => "sales by rep", "spec" => sales_by_rep_ir }]
-        expect_any_instance_of(Reports::QueryGenerator)
+        expect_any_instance_of(Reports::IrGenerator)
           .to receive(:generate)
           .with("now just the completed ones", history: history, hints: {})
           .and_return(sales_by_rep_ir)
@@ -291,7 +291,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
     # A focused endpoint owns its scope, so a routing hint (hints.page) is meaningless
     # and is stripped before reaching the generator; the within-scope bias (filters) stays.
     it "strips hints.page before forwarding hints to the generator" do
-      expect_any_instance_of(Reports::QueryGenerator)
+      expect_any_instance_of(Reports::IrGenerator)
         .to receive(:generate)
         .with("sales by rep", history: [], hints: { "filters" => { "order_status" => "open" } })
         .and_return(sales_by_rep_ir)
@@ -304,7 +304,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
     end
   end
 
-  # The generic endpoint resolves scope from the query + hints (Phase 1.7). Routing is
+  # The generic endpoint resolves scope from the query + hints (Phase 1.7). Scope resolution is
   # deterministic here (page-honored / clear lexical winner), so no LLM is involved.
   describe "POST /api/v1/reports/query — scope routing" do
     let(:inventory_by_warehouse_ir) do
@@ -316,7 +316,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
       }
     end
 
-    it "routes an inventory question to the inventory scope and surfaces meta.routing" do
+    it "routes an inventory question to the inventory scope and surfaces meta.query_scoping" do
       wh = create(:warehouse, name: "West")
       create(:inventory_item, warehouse: wh, quantity_available: 30)
       create(:inventory_item, warehouse: wh, quantity_available: 70)
@@ -328,9 +328,9 @@ RSpec.describe "Api::V1::Reports", type: :request do
 
       expect(response).to have_http_status(:ok)
       expect(response.parsed_body["data"]).to eq([{ "wh" => "West", "qty" => 100 }])
-      routing = response.parsed_body.dig("meta", "routing")
-      expect(routing["scope"]).to eq("inventory")
-      expect(routing["ambiguous"]).to be(false)
+      query_scoping = response.parsed_body.dig("meta", "query_scoping")
+      expect(query_scoping["scope"]).to eq("inventory")
+      expect(query_scoping["ambiguous"]).to be(false)
     end
 
     it "routes a sales question to the sales scope" do
@@ -341,7 +341,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
       post "/api/v1/reports/query", params: { query: "total revenue by sales rep" }, as: :json
 
       expect(response).to have_http_status(:ok)
-      expect(response.parsed_body.dig("meta", "routing", "scope")).to eq("sales")
+      expect(response.parsed_body.dig("meta", "query_scoping", "scope")).to eq("sales")
     end
 
   end

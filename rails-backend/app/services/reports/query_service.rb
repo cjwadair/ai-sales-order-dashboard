@@ -20,16 +20,16 @@ module Reports
     #
     # `generator` is a test seam (decided to keep): request specs inject a mock generator
     # returning canned IR for each taxonomy outcome, instead of stubbing. Defaults to a real
-    # QueryGenerator in production (see #generator_for).
-    # `routing` is the optional scope-resolution record from the generic endpoint
-    # (Phase 1.7); when present it's merged into the success envelope's `meta.routing`
+    # IrGenerator in production (see #generator_for).
+    # `scope_resolution` is the optional scope-resolution record from the generic endpoint
+    # (Phase 1.7); when present it's merged into the success envelope's `meta.query_scoping`
     # so the client can see which scope ran and whether the choice was ambiguous.
-    def initialize(query:, history: [], scope: "sales", hints: {}, routing: nil, generator: nil)
+    def initialize(query:, history: [], scope: "sales", hints: {}, scope_resolution: nil, generator: nil)
       @query = query
       @history = history
       @scope = scope
       @hints = hints
-      @routing = routing
+      @scope_resolution = scope_resolution
       @generator = generator
     end
 
@@ -43,11 +43,11 @@ module Reports
 
       compiled = Compiler.new(config).compile(ir)
       envelope = Executor.new.execute(compiled, ir)
-      envelope[:meta][:routing] = @routing if @routing
+      envelope[:meta][:query_scoping] = @scope_resolution if @scope_resolution
       Result.new(status: :ok, body: envelope)
     rescue SemanticConfig::ConfigError => e
       bad_request(e.message)
-    rescue QueryGenerator::GenerationError, Anthropic::Errors::Error => e
+    rescue IrGenerator::GenerationError, Anthropic::Errors::Error => e
       upstream_error(e.message)
     rescue ActiveRecord::QueryCanceled
       timeout_error
@@ -58,7 +58,7 @@ module Reports
     private
 
     def generator_for(config)
-      @generator || QueryGenerator.new(config)
+      @generator || IrGenerator.new(config)
     end
 
     def validation_failed(errors)

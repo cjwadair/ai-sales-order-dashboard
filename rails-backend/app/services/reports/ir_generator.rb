@@ -12,7 +12,7 @@ module Reports
   # invalidate it. The per-request variable suffix (advisory `hints`, plus history
   # and the new utterance) goes AFTER the breakpoint — hints in a trailing
   # uncached system block, conversation in `messages`.
-  class QueryGenerator
+  class IrGenerator
     # Matches the existing NL-parsing path (parse_query_controller). Bump to a
     # larger model here if richer IR generation needs it — it's one constant.
     MODEL = "claude-haiku-4-5".freeze

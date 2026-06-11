@@ -1,6 +1,6 @@
 require 'rails_helper'
 
-RSpec.describe Reports::QueryGenerator do
+RSpec.describe Reports::IrGenerator do
   let(:config) { Reports::SemanticConfig.for("sales") }
 
   before { Reports::SemanticConfig.reset_cache! }

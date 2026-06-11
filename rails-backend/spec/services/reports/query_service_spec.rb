@@ -6,7 +6,7 @@ RSpec.describe Reports::QueryService do
   # A canned generator injected via the `generator:` seam — no Anthropic call. This is the
   # intended way to drive the service in specs (decided: inject, don't stub).
   def canned_generator(ir)
-    instance_double(Reports::QueryGenerator, generate: ir)
+    instance_double(Reports::IrGenerator, generate: ir)
   end
 
   describe "#call" do

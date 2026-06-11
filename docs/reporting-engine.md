@@ -36,7 +36,7 @@ NL query (+ client-threaded history, + advisory hints)
    ▼
 [0] Scope resolution (generic endpoint only)   Reports::ScopeResolver / ScopeClassifier
    ▼
-[1] AI generates IR                            Reports::QueryGenerator — forced `query_report`
+[1] AI generates IR                            Reports::IrGenerator — forced `query_report`
                                                tool; schema generated from the scope's config
    ▼
 [2] Validate IR against the config             Reports::IrValidator   → 422 on failure

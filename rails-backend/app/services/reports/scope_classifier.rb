@@ -4,7 +4,7 @@ module Reports
   # deterministic signal (page hint) is present.
   # Returns nil when the model cannot return a usable result; the resolver owns the fallback.
   #
-  # Mirrors QueryGenerator's client + forced-tool pattern. The `client` seam lets
+  # Mirrors IrGenerator's client + forced-tool pattern. The `client` seam lets
   # specs inject a fake instead of calling Anthropic.
   class ScopeClassifier
     MODEL = "claude-haiku-4-5".freeze

@@ -14,11 +14,11 @@ module Reports
 
     private
 
-    # routing         - optional ScopeResolver::Result (generic endpoint); its `meta`
-    #                   is surfaced in the response as `meta.routing`.
-    # strip_page_hint - focused endpoints drop `hints.page` so a cross-scope routing
-    #                   signal can't leak into the generator's within-scope bias.
-    def run_scoped_query(scope:, routing: nil, strip_page_hint: false)
+    # scope_resolution - optional ScopeResolver::Result (generic endpoint); its `meta`
+    #                    is surfaced in the response as `meta.query_scoping`.
+    # strip_page_hint  - focused endpoints drop `hints.page` so a cross-scope page
+    #                    signal can't leak into the generator's within-scope bias.
+    def run_scoped_query(scope:, scope_resolution: nil, strip_page_hint: false)
       return if reject_blank_query
 
       hints = hints_param
@@ -29,7 +29,7 @@ module Reports
         history: history_param,
         scope: scope,
         hints: hints,
-        routing: routing&.meta,
+        scope_resolution: scope_resolution&.meta,
       ).call
 
       render json: result.body, status: result.status
