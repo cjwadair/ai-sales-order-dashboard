@@ -6,7 +6,7 @@ Rails.application.routes.draw do
       resources :suppliers, only: [:index, :show]
       get :filter_options, to: 'filter_options#index'
       post :parse_query, to: 'parse_query#create'
-      post 'reports/query', to: 'reports#query'                # generic (Chat); sales-pinned pending 1.7 resolver
+      post 'reports/query', to: 'reports#query'                # generic (Chat); scope resolved per request
       post 'reports/orders_query', to: 'reports#orders_query'  # focused sales endpoint
     end
   end
