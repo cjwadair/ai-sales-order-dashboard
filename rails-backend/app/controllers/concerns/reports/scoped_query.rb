@@ -8,6 +8,10 @@ module Reports
   module ScopedQuery
     extend ActiveSupport::Concern
 
+    PAGE_HINT_MAX    = 64   # max chars for hints.page
+    FILTERS_MAX_KEYS = 20   # max keys in hints.filters
+    FILTER_ARRAY_MAX = 20   # max elements per array value in hints.filters
+
     private
 
     # routing         - optional ScopeResolver::Result (generic endpoint); its `meta`
@@ -18,7 +22,7 @@ module Reports
       return if reject_blank_query
 
       hints = hints_param
-      hints = hints.except("page", :page) if strip_page_hint
+      hints = hints.except("page") if strip_page_hint
 
       result = Reports::QueryService.new(
         query: params[:query].to_s.strip,
@@ -46,13 +50,53 @@ module Reports
       Array(params[:history]).map { |turn| turn.respond_to?(:to_unsafe_h) ? turn.to_unsafe_h : turn }
     end
 
-    # Optional soft/advisory bias (e.g. { page:, filters: {…} }); normalize the nested
-    # ActionController::Parameters into a plain hash for the generator. Never a hard filter.
+    # Optional soft/advisory bias forwarded to the generator. Shape-validated to the
+    # known contract; unknown keys and over-limit payloads are silently dropped rather
+    # than 400'd (hints are advisory — the request must never fail because of them).
+    #
+    # Allowed shape:
+    #   page    — string, max PAGE_HINT_MAX chars
+    #   filters — flat hash: scalar values, arrays of scalars, or { relative: string }
     def hints_param
       hints = params[:hints]
       return {} if hints.blank?
 
-      hints.respond_to?(:to_unsafe_h) ? hints.to_unsafe_h : hints
+      raw = hints.respond_to?(:to_unsafe_h) ? hints.to_unsafe_h : hints.to_h
+      whitelist_hints(raw)
+    end
+
+    def whitelist_hints(raw)
+      result = {}
+
+      if (page = raw["page"].presence)
+        result["page"] = page.to_s.slice(0, PAGE_HINT_MAX)
+      end
+
+      if (filters = raw["filters"]) && filters.is_a?(Hash)
+        result["filters"] = whitelist_filters(filters)
+      end
+
+      result
+    end
+
+    def whitelist_filters(raw)
+      raw.first(FILTERS_MAX_KEYS).each_with_object({}) do |(key, value), out|
+        v = whitelist_filter_value(value)
+        out[key.to_s] = v unless v.nil?
+      end
+    end
+
+    def whitelist_filter_value(value)
+      case value
+      when String, Numeric, TrueClass, FalseClass then value
+      when Hash
+        # Allow { relative: <string> } for date-relative hints only.
+        rel = value["relative"] || value[:relative]
+        { "relative" => rel.to_s } if rel.is_a?(String)
+      when Array
+        items = value.first(FILTER_ARRAY_MAX).select { |v| v.is_a?(String) || v.is_a?(Numeric) }
+        items unless items.empty?
+      end
     end
   end
 end

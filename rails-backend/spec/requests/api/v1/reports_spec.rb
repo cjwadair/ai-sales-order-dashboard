@@ -125,7 +125,7 @@ RSpec.describe "Api::V1::Reports", type: :request do
         create(:sales_order, :with_consignee, :with_supplier, :with_warehouse, sales_rep: rep, order_total: 100, order_date: Date.current)
       end
 
-      it "forwards hints to the generator" do
+      it "forwards known hint keys to the generator" do
         hints = { "page" => "sales_orders", "filters" => { "order_status" => "open" } }
         expect_any_instance_of(Reports::QueryGenerator)
           .to receive(:generate)
@@ -134,6 +134,76 @@ RSpec.describe "Api::V1::Reports", type: :request do
 
         post "/api/v1/reports/query",
              params: { query: "the big ones", hints: hints },
+             as: :json
+
+        expect(response).to have_http_status(:ok)
+      end
+
+      it "strips unknown top-level hint keys before forwarding to the generator" do
+        expect_any_instance_of(Reports::QueryGenerator)
+          .to receive(:generate)
+          .with(anything, history: anything, hints: { "page" => "sales_orders" })
+          .and_return(sales_by_rep_ir)
+
+        post "/api/v1/reports/query",
+             params: { query: "sales", hints: { page: "sales_orders", injected: "<script>bad</script>", extra: 42 } },
+             as: :json
+
+        expect(response).to have_http_status(:ok)
+      end
+
+      it "caps hints.page at #{Reports::ScopedQuery::PAGE_HINT_MAX} characters" do
+        long_page = "x" * 200
+        expect_any_instance_of(Reports::QueryGenerator)
+          .to receive(:generate)
+          .with(anything, history: anything, hints: { "page" => "x" * Reports::ScopedQuery::PAGE_HINT_MAX })
+          .and_return(sales_by_rep_ir)
+
+        post "/api/v1/reports/query",
+             params: { query: "sales", hints: { page: long_page } },
+             as: :json
+
+        expect(response).to have_http_status(:ok)
+      end
+
+      it "strips deeply nested objects from hints.filters, keeping scalar values" do
+        expect_any_instance_of(Reports::QueryGenerator)
+          .to receive(:generate)
+          .with(anything, history: anything, hints: { "filters" => { "status" => "open" } })
+          .and_return(sales_by_rep_ir)
+
+        post "/api/v1/reports/query",
+             params: { query: "sales", hints: { filters: { status: "open", nested: { deep: "bad" } } } },
+             as: :json
+
+        expect(response).to have_http_status(:ok)
+      end
+
+      it "allows a { relative: string } date hint in filters" do
+        expected_hints = { "filters" => { "order_date" => { "relative" => "year_start" } } }
+        expect_any_instance_of(Reports::QueryGenerator)
+          .to receive(:generate)
+          .with(anything, history: anything, hints: expected_hints)
+          .and_return(sales_by_rep_ir)
+
+        post "/api/v1/reports/query",
+             params: { query: "sales", hints: { filters: { order_date: { relative: "year_start" } } } },
+             as: :json
+
+        expect(response).to have_http_status(:ok)
+      end
+
+      it "caps hints.filters at #{Reports::ScopedQuery::FILTERS_MAX_KEYS} keys" do
+        many_filters = (1..30).each_with_object({}) { |i, h| h["key_#{i}"] = "v" }
+
+        expect_any_instance_of(Reports::QueryGenerator)
+          .to receive(:generate) do |_, _, history:, hints:|
+            expect(hints["filters"].keys.size).to be <= Reports::ScopedQuery::FILTERS_MAX_KEYS
+            sales_by_rep_ir
+          end
+
+        post "/api/v1/reports/query",
+             params: { query: "sales", hints: { filters: many_filters } },
              as: :json
 
         expect(response).to have_http_status(:ok)
