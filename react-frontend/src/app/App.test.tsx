@@ -19,6 +19,7 @@ function mockFetch() {
           order_total: 500,
           consignee: { name: 'Acme Corp' },
           sales_rep: { name: 'Jane Smith' },
+          warehouse: { name: 'WH-1' },
         }],
         meta: { page: 1, per_page: 20, total_count: 1, total_pages: 1 },
         // filter_options response (same mock handles both URLs)
@@ -36,7 +37,7 @@ describe('App', () => {
     mockFetch()
     render(
       <MemoryRouter initialEntries={['/orders']}>
-        <App />q
+        <App />
       </MemoryRouter>,
     )
 

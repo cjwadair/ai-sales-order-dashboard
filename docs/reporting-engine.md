@@ -3,7 +3,7 @@
 The reporting engine answers natural-language questions ("YTD sales by rep, top 5") by having
 Claude emit a structured **query spec (IR)** — never SQL — which a deterministic backend pipeline
 validates, compiles into a parameterized ActiveRecord/Arel query, executes, and returns as a
-typed JSON envelope. This document describes the system **as built** through Phase 1.9
+typed JSON envelope. This document describes the system **as built** through Phase 2
 (June 2026); design history lives in the per-phase commits referenced at the end.
 
 ## Design intent: multiple data sources is the destination
@@ -66,11 +66,17 @@ Adding a focused endpoint for a new dataset = one route + one thin action pinnin
 ### Scope routing (generic endpoint)
 
 `ScopeResolver` picks exactly one configured scope before generation (the chosen scope selects
-which config's cached schema prefix is used). Ladder, cheapest first: single configured scope →
-`hints.page` honored via the deterministic `page_index` (unless the query lexically pulls to
-another scope) → clear lexical winner → cheap-LLM `ScopeClassifier` tiebreak. The outcome,
-including ambiguity (`{ scope, ambiguous, candidates }`), is surfaced in `meta.routing`.
-Resolution is best-effort and single-shot — the engine never asks a clarifying question.
+which config's cached schema prefix is used). Ladder, cheapest first:
+
+1. **Single configured scope** — trivially resolved; no classifier needed.
+2. **`hints.page` → `page_index`** — deterministic lookup; bypassed only if the query lexically
+   pulls to a different scope.
+3. **`ScopeClassifier`** — cheap-LLM tiebreak when the ladder hasn't resolved.
+
+A configured default-scope fallback is used if the classifier is inconclusive. The resolution
+outcome — including ambiguity flag and candidates — is surfaced in **`meta.query_scoping`**
+(`{ scope, ambiguous, candidates }`). Resolution is best-effort and single-shot — the engine
+never asks a clarifying question.
 
 ## Safety model: allowlist by construction
 
@@ -175,13 +181,27 @@ scoped config they are handed.
 {
   "spec":    { /* the IR — echoed for history + debug */ },
   "title":   "YTD sales by rep (top 5)",
-  "data":    [ { "rep": "…", "revenue": 1234.5 } ],
+  "data":    [ { "rep": "Alice", "revenue": "1234.50" } ],
   "columns": [ { "name": "rep", "type": "string" }, { "name": "revenue", "type": "decimal" } ],
-  "meta":    { "row_count": 5, "truncated": false, "unsupported_note": null,
-               "routing": { "scope": "sales", "ambiguous": false, "candidates": ["sales"] },
+  "meta":    { "row_count": 5, "truncated": false, "limit": 100, "limit_defaulted": true,
+               "unsupported_note": null,
+               "query_scoping": { "scope": "sales", "ambiguous": false, "candidates": ["sales"] },
                "sql_debug": "…" /* non-production only */ }
 }
 ```
+
+**Decimal values are serialized as strings** (`"1234.50"`, not `1234.5`) so that JavaScript
+consumers can display them without floating-point rounding. Parse with `Decimal`/`BigDecimal` or
+string-formatting; never with `parseFloat` → `toFixed` (precision loss).
+
+**`meta` fields:**
+- `row_count` — rows in the response (after truncation).
+- `truncated` — true when the result was capped at `limit`.
+- `limit` — the row cap that was applied (default or explicit).
+- `limit_defaulted` — true when `limit` was defaulted by the engine (not explicitly requested).
+- `unsupported_note` — non-null on a soft-200 when the query was partially out-of-domain.
+- `query_scoping` — scope-resolution record (generic endpoint only; absent on focused endpoints).
+- `sql_debug` — the compiled SQL; present in non-production environments only.
 
 | Outcome | HTTP | Shape |
 |---|---|---|
@@ -190,12 +210,33 @@ scoped config they are handed.
 | Model couldn't fully express / out-of-domain | 200 | best-effort `data` + `meta.unsupported_note` |
 | Semantic validation failed | 422 | `{ error: { code: "validation_failed", details } }` |
 | Malformed request / unknown scope | 400 | `{ error: { code: "bad_request" } }` |
+| Statement timeout | 504 | `{ error: { code: "timeout" } }` |
 | AI generation failure | 502 | `{ error: { code: "upstream_error" } }` |
 | Unexpected (defensive) | 500 | `{ error: { code: "internal" } }` |
 
 Out-of-domain questions on a focused endpoint are **not rejected**: foreign fields are
 structurally unemittable, so the forced tool yields a best-effort in-scope query plus
 `unsupported_note` — a soft 200.
+
+**Guardrails.** The engine enforces two hard limits to protect shared infrastructure:
+- **Default row limit** — results are capped (default 100 rows) unless a smaller explicit limit
+  is in the IR. `meta.limit` always reflects the cap applied; `meta.limit_defaulted` is `true`
+  when the engine chose it.
+- **Statement timeout** — long-running queries are killed after a configured interval, returning
+  504 `timeout`. The client should suggest narrowing the date range or adding filters.
+
+## Aggregation semantics under fan-out
+
+When a query joins across a `has_many` relationship (e.g. order → order_items), the grain shifts
+and aggregation semantics tighten:
+
+- **Filter-only references** (`filter` role, no `dimension`/`measure`) compile to `EXISTS` — no
+  row multiplication. Safe to use freely.
+- **`COUNT(*)`** counts at the *joined* grain (order_item rows, not orders). Use `count_distinct`
+  on an order key if you want distinct order counts.
+- **`sum`/`avg` of a root-side field** (e.g. `order_total`) under an item-side join is rejected
+  with a **422** — it would produce double-counted aggregates. Model these at the order grain
+  instead (omit the item-side dimension/filter that forces the join).
 
 ## Date handling (hybrid, Phase 1.8)
 
@@ -217,10 +258,18 @@ cache key in spirit: the prefix only changes when the config does, per scope.
 
 ## History
 
-Built incrementally as Phase 1 → 1.9 (complete June 2026). Key commits: `88dad6f` (controller +
+**Phase 1** — built incrementally (complete June 2026). Key commits: `88dad6f` (controller +
 orchestrator), `e080339` (Phase 1.5: scope rename + hints), `be33526` (1.6: registry + focused
 endpoints), `2bc63a0` (1.7: scope resolver), `6fd304c` (1.8: AI-resolved dates), `d2837d2`
-(1.9: reference-field disambiguation). The legacy `parse_query` → `SalesOrdersController` filter
-path predates the engine and is intentionally untouched. Phase 2 (backend hardening: fan-out
-correctness, execution guardrails, envelope/decimal conventions) is in flight; Phase 3 adds
-frontend views + view recommendation.
+(1.9: reference-field disambiguation).
+
+**Phase 2** — backend hardening (complete June 2026). Key commits: `a325e96` (fan-out
+correctness: `EXISTS` for filter-only has_many joins; 422 for root-side aggregates under
+item-side joins), `2054964` (sql_adaptor rename; adapter selection moved to app-level config),
+`616726e` (IrGenerator/scope_resolution rename), `6a3e3c0` (IrCompiler/QueryExecutor rename),
+`85826d7` (variable naming: `dimensions` throughout IR compiler and validator). Envelope
+conventions hardened: decimal values are strings; `meta` carries `limit`, `limit_defaulted`,
+`query_scoping`, `sql_debug`. Outcome taxonomy extended with `timeout` (504).
+
+The legacy `parse_query` → `SalesOrdersController` filter path predates the engine and is
+intentionally untouched. Phase 3 adds frontend views + view recommendation.

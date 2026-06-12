@@ -14,6 +14,7 @@ const defaultParams = {
   customer: undefined,
   orderTotalMin: undefined,
   orderTotalMax: undefined,
+  warehouse: undefined,
   sort: { field: 'orderDate' as const, order: 'desc' as const },
   page: 1,
 }
@@ -29,6 +30,7 @@ function makeOrder(overrides = {}) {
     order_total: 500,
     consignee: { name: 'Acme Corp' },
     sales_rep: { name: 'Jane Smith' },
+    warehouse: { name: 'Main Warehouse' },
     ...overrides,
   }
 }
