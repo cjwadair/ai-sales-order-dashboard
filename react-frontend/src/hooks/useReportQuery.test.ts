@@ -5,7 +5,7 @@ import { useReportQuery, type ReportEnvelope } from './useReportQuery'
 const envelope: ReportEnvelope = {
   spec: { source: 'order' },
   title: 'Sales by rep',
-  data: [{ rep: 'Alice', revenue: 150 }],
+  data: [{ rep: 'Alice', revenue: '150.00' }],
   columns: [
     { name: 'rep', type: 'string' },
     { name: 'revenue', type: 'decimal' },
@@ -73,5 +73,35 @@ describe('useReportQuery', () => {
 
     expect(result.current.error).toBe('bad query')
     expect(result.current.hasHistory).toBe(false)
+  })
+
+  it('surfaces a clean error when the envelope fails schema validation', async () => {
+    mockOk({ spec: {}, title: null, data: [], columns: [], meta: { truncated: false } })
+    const { result } = renderHook(() => useReportQuery())
+
+    await act(async () => {
+      await expect(result.current.runQuery('anything')).rejects.toThrow(
+        'Unexpected response from the report service',
+      )
+    })
+
+    expect(result.current.error).toBe('Unexpected response from the report service')
+    expect(result.current.hasHistory).toBe(false)
+  })
+
+  it('preserves decimal string values without precision loss', async () => {
+    const decimalEnvelope: ReportEnvelope = {
+      ...envelope,
+      data: [{ rep: 'Alice', revenue: '9007199254740993.99' }],
+    }
+    mockOk(decimalEnvelope)
+    const { result } = renderHook(() => useReportQuery())
+
+    let returned: ReportEnvelope | undefined
+    await act(async () => {
+      returned = await result.current.runQuery('large decimal')
+    })
+
+    expect((returned!.data[0] as Record<string, unknown>).revenue).toBe('9007199254740993.99')
   })
 })

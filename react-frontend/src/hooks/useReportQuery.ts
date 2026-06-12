@@ -1,26 +1,15 @@
 import { useCallback, useState } from 'react'
+import {
+  reportEnvelopeSchema,
+  reportErrorSchema,
+  type ReportEnvelope,
+  type ReportColumn,
+  type ReportRow,
+  type ReportMeta,
+} from '../api/reportEnvelope'
 
-// Mirrors the backend response envelope from POST /api/v1/reports/query.
-export type ReportColumn = { name: string; type: string }
-export type ReportRow = Record<string, string | number | null>
+export type { ReportEnvelope, ReportColumn, ReportRow, ReportMeta }
 export type ReportSpec = Record<string, unknown>
-
-export type ReportMeta = {
-  row_count: number
-  truncated: boolean
-  unsupported_note: string | null
-  sql_debug?: string
-}
-
-export type ReportEnvelope = {
-  spec: ReportSpec
-  title: string | null
-  data: ReportRow[]
-  columns: ReportColumn[]
-  meta: ReportMeta
-}
-
-type ReportError = { error?: { code?: string; message?: string; details?: string[] } }
 
 // Client-threaded history: prior successful turns, sent back so the model
 // refines the most recent spec (full-spec-per-turn). Capped to the last 5.
@@ -52,14 +41,22 @@ export function useReportQuery(): UseReportQueryResult {
         body: JSON.stringify({ query, history }),
       })
 
-      const body = (await res.json().catch(() => ({}))) as ReportEnvelope | ReportError
+      const body = await res.json().catch(() => ({}))
 
       if (!res.ok) {
-        const message = (body as ReportError).error?.message ?? `Request failed: ${res.status}`
+        const parsed = reportErrorSchema.safeParse(body)
+        const message = parsed.success
+          ? (parsed.data.error.message ?? `Request failed: ${res.status}`)
+          : `Request failed: ${res.status}`
         throw new Error(message)
       }
 
-      const envelope = body as ReportEnvelope
+      const parsed = reportEnvelopeSchema.safeParse(body)
+      if (!parsed.success) {
+        throw new Error('Unexpected response from the report service')
+      }
+
+      const envelope = parsed.data
       setHistory(prev => [...prev, { query, spec: envelope.spec }].slice(-5))
       return envelope
     } catch (err) {
