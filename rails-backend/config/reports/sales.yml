@@ -32,7 +32,7 @@ entities:
       order_date:   { column: order_date,   type: date,    roles: [dimension, filter], grains: [day, week, month, quarter, year] }
       delivery_date: { column: delivery_date, type: date,  roles: [dimension, filter], grains: [day, week, month, quarter, year] }
       order_status: { column: order_status, type: enum,    roles: [dimension, filter], values: [pending, approved, processing, shipped, delivered, completed] }
-      order_type:   { column: order_type,   type: string,  roles: [dimension, filter] }
+      order_type:   { column: order_type, type: enum, roles: [dimension, filter], values: [Delivery, Return] }
       payment_status: { column: payment_status, type: string, roles: [dimension, filter] }
       order_total:  { column: order_total,  type: decimal, roles: [measure, filter], aggregations: [sum, avg, min, max] }
 

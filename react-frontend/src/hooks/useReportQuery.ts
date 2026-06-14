@@ -11,6 +11,19 @@ import {
 export type { ReportEnvelope, ReportColumn, ReportRow, ReportMeta }
 export type ReportSpec = Record<string, unknown>
 
+// Thrown for all API-level failures so callers can read structured taxonomy info.
+export class ReportQueryError extends Error {
+  readonly code: string | null
+  readonly details: string[]
+
+  constructor(message: string, code: string | null = null, details: string[] = []) {
+    super(message)
+    this.name = 'ReportQueryError'
+    this.code = code
+    this.details = details
+  }
+}
+
 // Client-threaded history: prior successful turns, sent back so the model
 // refines the most recent spec (full-spec-per-turn). Capped to the last 5.
 type HistoryTurn = { query: string; spec: ReportSpec }
@@ -45,10 +58,12 @@ export function useReportQuery(): UseReportQueryResult {
 
       if (!res.ok) {
         const parsed = reportErrorSchema.safeParse(body)
+        const code = parsed.success ? parsed.data.error.code : null
+        const details = parsed.success ? (parsed.data.error.details ?? []) : []
         const message = parsed.success
           ? (parsed.data.error.message ?? `Request failed: ${res.status}`)
           : `Request failed: ${res.status}`
-        throw new Error(message)
+        throw new ReportQueryError(message, code, details)
       }
 
       const parsed = reportEnvelopeSchema.safeParse(body)
