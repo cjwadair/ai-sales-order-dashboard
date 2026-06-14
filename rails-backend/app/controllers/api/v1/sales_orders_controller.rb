@@ -18,6 +18,7 @@ class Api::V1::SalesOrdersController < ApplicationController
       .by_sales_rep(params[:sales_rep])
       .by_consignee(params[:customer])
       .by_warehouse(params[:warehouse])
+      .by_order_type(params[:order_type])
       .order_total_in_range(params[:order_total_min], params[:order_total_max])
       .order_by(sort_by, sort_order)
 

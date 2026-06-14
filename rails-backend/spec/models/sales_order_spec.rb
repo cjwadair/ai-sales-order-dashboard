@@ -239,4 +239,28 @@ RSpec.describe SalesOrder, type: :model do
     end
   end
 
+  describe "by_order_type" do
+    it "returns orders matching the order type" do
+      order1 = create(:sales_order, :with_all_associations, order_type: "Delivery")
+      order2 = create(:sales_order, :with_all_associations, :return_order)
+
+      expect(SalesOrder.by_order_type("Delivery")).to include(order1)
+      expect(SalesOrder.by_order_type("Delivery")).not_to include(order2)
+    end
+
+    it "returns all orders if no order type is provided" do
+      order1 = create(:sales_order, :with_all_associations, order_type: "Delivery")
+      order2 = create(:sales_order, :with_all_associations, :return_order)
+
+      expect(SalesOrder.by_order_type(nil)).to include(order1, order2)
+    end
+
+    it "handles case-insensitive order type matching" do
+      order1 = create(:sales_order, :with_all_associations, order_type: "Delivery")
+      order2 = create(:sales_order, :with_all_associations, :return_order)
+
+      expect(SalesOrder.by_order_type("delivery")).to include(order1)
+      expect(SalesOrder.by_order_type("delivery")).not_to include(order2)
+    end
+  end
 end

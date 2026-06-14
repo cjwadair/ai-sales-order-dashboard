@@ -31,4 +31,9 @@ FactoryBot.define do
     with_sales_rep
     with_warehouse
   end
+
+  trait :return_order do
+    order_type { "Return" }
+    order_total { -9.99 }
+  end
 end

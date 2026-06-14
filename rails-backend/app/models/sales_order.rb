@@ -82,5 +82,9 @@ class SalesOrder < ApplicationRecord
   def self.by_warehouse(warehouse)
     warehouse.present? ? joins(:warehouse).where("warehouses.name ILIKE ?", "%#{warehouse}%") : all
   end
+
+  def self.by_order_type(order_type)
+    order_type.present? ? where('LOWER(order_type) = ?', order_type.downcase) : all
+  end
   
 end
