@@ -19,9 +19,7 @@ describe('AiSearchBar', () => {
     render(
       <AiSearchBar
         onSearch={onSearch}
-        onClearHistory={vi.fn()}
         isLoading={false}
-        hasHistory={false}
         error={null}
       />
     )
@@ -41,9 +39,7 @@ describe('AiSearchBar', () => {
     render(
       <AiSearchBar
         onSearch={vi.fn()}
-        onClearHistory={vi.fn()}
         isLoading={true}
-        hasHistory={false}
         error={null}
       />
     )
@@ -56,9 +52,7 @@ describe('AiSearchBar', () => {
     render(
       <AiSearchBar
         onSearch={vi.fn()}
-        onClearHistory={vi.fn()}
         isLoading={false}
-        hasHistory={false}
         error="Something went wrong"
       />
     )

@@ -8,10 +8,6 @@ afterEach(() => {
 })
 
 describe('DropdownFilter', () => {
-  function getDropdownDetailsByLabel(label: string) {
-    return screen.getByText(label).closest('div') as HTMLDivElement
-  }
-
   it('renders placeholder when no selected value exists', () => {
     const onSelect = vi.fn()
 

@@ -1,7 +1,5 @@
 import { useCallback, useState } from 'react'
 import { useDebounce } from '../hooks/useDebounce'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faDownload, faPrint, faEllipsis } from '@fortawesome/free-solid-svg-icons'
 import { FilterBar } from '../components/FilterBar'
 import { GridTable, type GridColumn, type SortState } from '../components/GridTable'
 import { capitalizeWords, formattedDate, parseISODate } from '../utils/formatters'

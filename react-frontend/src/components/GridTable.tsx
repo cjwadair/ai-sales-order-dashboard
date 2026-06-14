@@ -340,9 +340,12 @@ export function GridTableRows<TItem>({ className, renderCell }: GridTableRowsPro
   const sentinelRef = useRef<HTMLDivElement>(null)
 
   const pageRef = useRef(page)
-  pageRef.current = page
   const totalPagesRef = useRef(totalPages)
-  totalPagesRef.current = totalPages
+
+  useEffect(() => {
+    pageRef.current = page
+    totalPagesRef.current = totalPages
+  })
 
   useEffect(() => {
     const sentinel = sentinelRef.current

@@ -146,17 +146,6 @@ export function FilterBar({
     })
   }
 
-  function clearAllFilters() {
-    activeFilters.forEach((f) => f.onClear())
-    setActiveFilterIds((prev) => {
-      const next = new Set(prev)
-      activeFilters.forEach((f) => {
-        if (!f.activeByDefault) next.delete(f.id)
-      })
-      return next
-    })
-  }
-
   const activeFilters = useMemo(
     () => filters.filter((f) => activeFilterIds.has(f.id)),
     [activeFilterIds, filters],
@@ -171,6 +160,17 @@ export function FilterBar({
     () => activeFilters.some(filterHasValue),
     [activeFilters],
   )
+
+  function clearAllFilters() {
+    activeFilters.forEach((f) => f.onClear())
+    setActiveFilterIds((prev) => {
+      const next = new Set(prev)
+      activeFilters.forEach((f) => {
+        if (!f.activeByDefault) next.delete(f.id)
+      })
+      return next
+    })
+  }
 
   function renderActiveFilter(filter: FilterConfig) {
     switch (filter.type) {
@@ -235,11 +235,6 @@ export function FilterBar({
         return (
           <AiSearchBar
             onSearch={filter.onSearch}
-            onClearHistory={() => {
-              filter.onClear()
-              if (!filter.activeByDefault) deactivateFilter(filter.id)
-            }}
-            hasHistory={filter.hasHistory}
             isLoading={filter.isLoading}
             error={filter.error}
           />

@@ -4,13 +4,11 @@ import { faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons'
 
 type AiSearchBarProps = {
   onSearch: (query: string) => Promise<void>
-  onClearHistory: () => void
   isLoading: boolean
-  hasHistory: boolean
   error: string | null
 }
 
-export function AiSearchBar({ onSearch, onClearHistory, isLoading, hasHistory, error }: AiSearchBarProps) {
+export function AiSearchBar({ onSearch, isLoading, error }: AiSearchBarProps) {
   const [query, setQuery] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {

@@ -1,4 +1,4 @@
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
+import { NavLink, Route, Routes } from 'react-router-dom'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { OrdersPage } from '../pages/OrdersPage'
 import { ChatPage } from '../pages/ChatPage'
