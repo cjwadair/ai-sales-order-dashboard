@@ -36,6 +36,8 @@ class SalesOrder < ApplicationRecord
 
   STATUSES = %w[pending approved processing shipped delivered completed].freeze
 
+  ORDER_TYPES = %w[Delivery Return].freeze
+
   SORTABLE_COLUMNS = %w[order_date order_total delivery_date order_status order_number order_type].freeze
 
   ASSOCIATION_SORT_MAP = {

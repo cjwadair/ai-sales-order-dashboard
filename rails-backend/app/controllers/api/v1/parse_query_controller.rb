@@ -58,6 +58,11 @@ class Api::V1::ParseQueryController < ApplicationController
                 enum: SalesOrder::STATUSES,
                 description: "Filter by order status"
               },
+              order_type: {
+                type: "string",
+                enum: SalesOrder::ORDER_TYPES,
+                description: "Filter by order type"
+              },
               order_date_from: {
                 type: "string",
                 description: "Start of order date range (inclusive), ISO format YYYY-MM-DD"
@@ -118,7 +123,7 @@ class Api::V1::ParseQueryController < ApplicationController
     raise "No tool_use block in response" unless tool_use_block
 
     render json: tool_use_block.input
-  rescue Anthropic::APIError => e
-    render json: { error: e.message }, status: :unprocessable_content
+  rescue Anthropic::Errors::Error => e
+    render json: { error: e.message }, status: :unprocessable_entity
   end
 end

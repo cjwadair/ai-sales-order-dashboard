@@ -57,6 +57,8 @@ export type UseOrderFiltersParams = {
   setPage: (page: number) => void
   setSort: (sort: SortState<Order>) => void
   setActiveFilterIds: (ids: Set<string>) => void
+  orderType: string | undefined
+  setOrderType: (v: string | undefined) => void
 }
 
 export function useOrderFilters({
@@ -66,7 +68,7 @@ export function useOrderFilters({
   salesRep, setSalesRep, customer, setCustomer,
   orderTotalMin, setOrderTotalMin, orderTotalMax, setOrderTotalMax,
   warehouse, setWarehouse, filterOptions, setPage,
-  setSort, setActiveFilterIds,
+  setSort, setActiveFilterIds, orderType, setOrderType
 }: UseOrderFiltersParams): FilterConfig[] {
 
   const { parseQuery, clearHistory, injectStateCorrection, hasHistory, isLoading: isAiLoading, error: aiError } = useAiSearch()
@@ -95,12 +97,14 @@ export function useOrderFilters({
     if (parsed.customer !== undefined) activateIds.add('customer')
     if (parsed.warehouse !== undefined) activateIds.add('warehouse')
     if (parsed.order_total_min !== undefined || parsed.order_total_max !== undefined) activateIds.add('orderTotal')
+    if (parsed.order_type !== undefined) activateIds.add('orderType')
 
     setSalesRep(parsed.sales_rep)
     setCustomer(parsed.customer)
     setWarehouse(parsed.warehouse)
     setOrderTotalMin(parsed.order_total_min)
     setOrderTotalMax(parsed.order_total_max)
+    setOrderType(parsed.order_type)
     activateIds.add('aiSearch')
     setActiveFilterIds(activateIds)
 
@@ -111,7 +115,7 @@ export function useOrderFilters({
     )
 
     setPage(1)
-  }, [parseQuery, setSearchTerm, setSelectedStatus, setDateFilter, setSalesRep, setCustomer, setOrderTotalMin, setOrderTotalMax, setActiveFilterIds, setSort, setPage])
+  }, [parseQuery, setSearchTerm, setSelectedStatus, setDateFilter, setSalesRep, setCustomer, setOrderTotalMin, setOrderTotalMax, setActiveFilterIds, setSort, setPage, setWarehouse, setOrderType])
 
   const buildCurrentParsedFilters = useCallback((overrides: Partial<ParsedFilters> = {}): ParsedFilters => ({
     search: searchTerm || undefined,
@@ -125,8 +129,9 @@ export function useOrderFilters({
     warehouse: warehouse || undefined,
     order_total_min: orderTotalMin,
     order_total_max: orderTotalMax,
+    order_type: orderType,
     ...overrides,
-  }), [searchTerm, selectedStatus, dateFilters.orderDate, dateFilters.deliveryDate, salesRep, customer, warehouse])
+  }), [searchTerm, selectedStatus, dateFilters.orderDate, dateFilters.deliveryDate, salesRep, customer, warehouse, orderType, orderTotalMin, orderTotalMax])
 
   return useMemo<FilterConfig[]>(() => [
     {
@@ -255,10 +260,23 @@ export function useOrderFilters({
       onClear: () => setWarehouse(undefined),
       placeholderValue: 'Any',
     },
+    {
+      type: 'dropdown',
+      id: 'orderType',
+      label: 'Order Type',
+      options: ['Delivery', 'Return'],
+      selectedValue: orderType,
+      onSelect: (value) => {
+        setOrderType(value)
+        if (hasHistory) injectStateCorrection(buildCurrentParsedFilters({ order_type: value }))
+      },
+      onClear: () => setOrderType(undefined),
+      placeholderValue: 'Any',
+    },
   ], [
     filterOptions, searchTerm, dateFilters.orderDate, dateFilters.deliveryDate, selectedStatus, salesRep, customer,
-    orderTotalMin, orderTotalMax,
-    setSearchTerm, setSelectedStatus, setDateFilter, setSalesRep, setCustomer, setOrderTotalMin, setOrderTotalMax, setPage,
-    handleAiSearch, clearHistory, hasHistory, isAiLoading, aiError, injectStateCorrection, buildCurrentParsedFilters,
+    orderTotalMin, orderTotalMax, orderType,
+    setSearchTerm, setSelectedStatus, setDateFilter, setSalesRep, setCustomer, setOrderTotalMin, setOrderTotalMax, setOrderType, setPage,
+    handleAiSearch, clearHistory, hasHistory, isAiLoading, aiError, injectStateCorrection, buildCurrentParsedFilters, warehouse, setWarehouse
   ])
 }

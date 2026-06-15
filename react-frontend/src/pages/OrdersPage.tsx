@@ -86,7 +86,7 @@ export function OrdersPage() {
   const [orderTotalMax, setOrderTotalMax] = useState<number | undefined>()
   const [activeFilterIds, setActiveFilterIds] = useState<Set<string>>(() => new Set(['aiSearch']))
   const [warehouse, setWarehouse] = useState<string | undefined>()
-  // const [order]
+  const [orderType, setOrderType] = useState<string | undefined>()
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
@@ -104,6 +104,7 @@ export function OrdersPage() {
     sort,
     page,
     warehouse,
+    orderType,
   })
 
   const filterOptions = useFilterOptions()
@@ -142,6 +143,8 @@ export function OrdersPage() {
     setActiveFilterIds,
     warehouse,
     setWarehouse,
+    orderType,
+    setOrderType,
   })
 
   return (

@@ -53,6 +53,7 @@ type UseOrdersParams = {
   sort: SortState<Order>
   page: number
   warehouse: string | undefined
+  orderType: string | undefined
 }
 
 type FetchState = {
@@ -100,6 +101,7 @@ export function useOrders({
   sort,
   page,
   warehouse,
+  orderType,
 }: UseOrdersParams): UseOrdersResult {
   const [orders, setOrders] = useState<Order[]>([])
   const [fetchState, setFetchState] = useState<FetchState>({ isLoading: true, isFetching: true, error: null })
@@ -129,6 +131,7 @@ export function useOrders({
     params.set('sort_by', camelToSnakeCase(sort.field))
     params.set('sort_order', sort.order)
     if (page > 1) params.set('page', page.toString())
+    if (orderType) params.set('order_type', orderType)
 
     const query = params.size > 0 ? `?${params}` : ''
 
@@ -163,7 +166,7 @@ export function useOrders({
       })
 
     return () => { controller.abort(); prevPageRef.current = 0 }
-  }, [searchTerm, orderDateFrom, orderDateTo, deliveryDateFrom, deliveryDateTo, selectedStatus, salesRep, customer, orderTotalMin, orderTotalMax, sort, page, warehouse])
+  }, [searchTerm, orderDateFrom, orderDateTo, deliveryDateFrom, deliveryDateTo, selectedStatus, salesRep, customer, orderTotalMin, orderTotalMax, sort, page, warehouse, orderType])
 
   return { orders, isLoading: fetchState.isLoading, isFetching: fetchState.isFetching, error: fetchState.error, totalPages }
 }

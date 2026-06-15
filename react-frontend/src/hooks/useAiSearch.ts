@@ -15,6 +15,7 @@ export type ParsedFilters = {
   sort_by?: string
   sort_order?: 'asc' | 'desc'
   warehouse?: string
+  order_type?: string
 }
 
 type HistoryTurn = { query: string; filters: ParsedFilters }
