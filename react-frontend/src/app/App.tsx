@@ -1,9 +1,10 @@
 import { NavLink, Route, Routes } from 'react-router-dom'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { OrdersPage } from '../pages/OrdersPage'
+import { OrdersIrPage } from '../pages/OrdersIrPage'
 import { ChatPage } from '../pages/ChatPage'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faDolly, faGauge } from '@fortawesome/free-solid-svg-icons'
+import { faDolly, faGauge, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons'
 import { ThemeContext } from '../contexts'
 import { useEffect, useState } from 'react'
 
@@ -52,6 +53,20 @@ export function App() {
                   </>
                 )}
               </NavLink>
+              <NavLink
+                to="/orders-ir"
+                className={({ isActive }) =>`flex flex-col gap-y-1.5 items-center w-full rounded-md px-2 py-2 dark:hover:bg-neutral-800 ${isActive ? 'hover:text-neutral-900' : 'text-neutral-700'}`}
+              >
+                {({ isActive }) => (
+                  <>
+                    <FontAwesomeIcon
+                      icon={faWandMagicSparkles}
+                      className={`text-2xl text-center ${isActive ? 'text-brand-500 hover:text-brand-600' : 'text-neutral-700'}`}
+                    />
+                    <div className={`text-xs`}>Smart</div>
+                  </>
+                )}
+              </NavLink>
             </nav>
           </div>
         </header>
@@ -60,6 +75,7 @@ export function App() {
           <Routes>
             <Route path="/chat" element={<ChatPage />} />
             <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/orders-ir" element={<OrdersIrPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>
