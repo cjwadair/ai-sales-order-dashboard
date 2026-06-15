@@ -45,10 +45,14 @@ class Api::V1::ParseQueryController < ApplicationController
       tools: [
         {
           name: "set_order_filters",
-          description: "Set the filter parameters for the orders list based on the user's natural language query",
+          description: "Set the filter parameters for the orders list based on the user's natural language query. Always populate query_description with a concise plain-English summary of the active filters.",
           input_schema: {
             type: "object",
             properties: {
+              query_description: {
+                type: "string",
+                description: "A short, plain English summary of the filters being applied (e.g. 'Completed orders from the last 30 days for Acme Corp'). Always populate this field."
+              },
               search: {
                 type: "string",
                 description: "Free text search across order number, customer, supplier, and sales rep"

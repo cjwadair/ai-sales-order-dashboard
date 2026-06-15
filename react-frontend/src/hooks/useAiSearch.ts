@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import type { OrderStatus } from './useOrders'
 
 export type ParsedFilters = {
+  query_description?: string
   search?: string
   status?: OrderStatus
   order_date_from?: string
@@ -27,14 +28,19 @@ type UseAiSearchResult = {
   isLoading: boolean
   hasHistory: boolean
   error: string | null
+  queryDescription: string | null
 }
 
 export function useAiSearch(): UseAiSearchResult {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [conversationHistory, setConversationHistory] = useState<HistoryTurn[]>([])
+  const [queryDescription, setQueryDescription] = useState<string | null>(null)
 
-  const clearHistory = useCallback(() => setConversationHistory([]), [])
+  const clearHistory = useCallback(() => {
+    setConversationHistory([])
+    setQueryDescription(null)
+  }, [])
 
   const injectStateCorrection = useCallback((filters: ParsedFilters) => {
     setConversationHistory(prev =>
@@ -60,6 +66,7 @@ export function useAiSearch(): UseAiSearchResult {
 
       const parsed = (await res.json()) as ParsedFilters
       setConversationHistory(prev => [...prev, { query, filters: parsed }].slice(-5))
+      setQueryDescription(parsed.query_description ?? null)
       return parsed
     } catch (err) {
       const message = err instanceof Error ? err.message : 'AI search failed'
@@ -70,5 +77,5 @@ export function useAiSearch(): UseAiSearchResult {
     }
   }
 
-  return { parseQuery, clearHistory, injectStateCorrection, isLoading, hasHistory: conversationHistory.length > 0, error }
+  return { parseQuery, clearHistory, injectStateCorrection, isLoading, hasHistory: conversationHistory.length > 0, error, queryDescription }
 }

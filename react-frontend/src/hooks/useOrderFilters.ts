@@ -69,9 +69,9 @@ export function useOrderFilters({
   orderTotalMin, setOrderTotalMin, orderTotalMax, setOrderTotalMax,
   warehouse, setWarehouse, filterOptions, setPage,
   setSort, setActiveFilterIds, orderType, setOrderType
-}: UseOrderFiltersParams): FilterConfig[] {
+}: UseOrderFiltersParams): { filters: FilterConfig[]; queryDescription: string | null } {
 
-  const { parseQuery, clearHistory, injectStateCorrection, hasHistory, isLoading: isAiLoading, error: aiError } = useAiSearch()
+  const { parseQuery, clearHistory, injectStateCorrection, hasHistory, isLoading: isAiLoading, error: aiError, queryDescription } = useAiSearch()
 
   const handleAiSearch = useCallback(async (query: string): Promise<void> => {
     const parsed = await parseQuery(query)
@@ -133,7 +133,7 @@ export function useOrderFilters({
     ...overrides,
   }), [searchTerm, selectedStatus, dateFilters.orderDate, dateFilters.deliveryDate, salesRep, customer, warehouse, orderType, orderTotalMin, orderTotalMax])
 
-  return useMemo<FilterConfig[]>(() => [
+  const filters = useMemo<FilterConfig[]>(() => [
     {
       type: 'aiSearch',
       id: 'aiSearch',
@@ -279,4 +279,6 @@ export function useOrderFilters({
     setSearchTerm, setSelectedStatus, setDateFilter, setSalesRep, setCustomer, setOrderTotalMin, setOrderTotalMax, setOrderType, setPage,
     handleAiSearch, clearHistory, hasHistory, isAiLoading, aiError, injectStateCorrection, buildCurrentParsedFilters, warehouse, setWarehouse
   ])
+
+  return { filters, queryDescription }
 }

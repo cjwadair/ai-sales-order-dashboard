@@ -122,7 +122,7 @@ export function OrdersPage() {
     setPage(1)
   }, [])
 
-  const filters = useOrderFilters({
+  const { filters, queryDescription } = useOrderFilters({
     searchTerm,
     setSearchTerm,
     dateFilters,
@@ -172,13 +172,22 @@ export function OrdersPage() {
         </div> */}
       </PageHeader>
 
+      {queryDescription && (
+        <div className="page-row">
+          <p className="text-center text-xl">
+            {queryDescription}
+          </p>
+        </div>  
+      )}
+      
       <FilterBar
         filters={filters}
         activeFilterIds={activeFilterIds}
         onActiveFilterIdsChange={setActiveFilterIds}
       />
 
-      <div className="flex-1 h-fit min-h-0 mt-1 mb-4">
+
+      <div className="flex-1 h-fit min-h-0 mb-4">
           {error ? (
             <div className="border-t border-neutral-200 dark:border-neutral-700">
               <div className="px-4 py-8 text-center text-red-600 dark:text-red-400">{error}</div>
