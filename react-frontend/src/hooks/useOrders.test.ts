@@ -15,6 +15,7 @@ const defaultParams = {
   orderTotalMin: undefined,
   orderTotalMax: undefined,
   warehouse: undefined,
+  orderType: undefined,
   sort: { field: 'orderDate' as const, order: 'desc' as const },
   page: 1,
 }

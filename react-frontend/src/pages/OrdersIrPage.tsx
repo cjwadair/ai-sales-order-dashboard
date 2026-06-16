@@ -3,12 +3,15 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faArrowUp } from '@fortawesome/free-solid-svg-icons'
 import clsx from 'clsx'
 import { useOrdersIrQuery, ReportQueryError, type ReportEnvelope } from '../hooks/useOrdersIrQuery'
-import { TableView } from '../reports/views/TableView'
+import { detectTableLayout, type TableLayout } from '../reports/detectTableLayout'
+import { DetailTableView } from '../reports/views/DetailTableView'
+import { SummaryTableView } from '../reports/views/SummaryTableView'
 
 type SuccessExchange = {
   kind: 'success'
   query: string
   envelope: ReportEnvelope
+  layoutOverride?: TableLayout
 }
 type ErrorExchange = {
   kind: 'error'
@@ -21,6 +24,17 @@ type Exchange = SuccessExchange | ErrorExchange
 
 const DEFAULT_QUERY =
   'List all orders showing order number, date, customer, warehouse, order total, status, and sales rep, sorted by order date descending'
+
+const LAYOUT_LABELS: Record<TableLayout, string> = {
+  detail: 'Detail',
+  summary: 'Summary',
+  grouped: 'Grouped',
+}
+
+// Grouped is not yet implemented (Phase 4.3); treat it as summary for display.
+function resolvedDisplayLayout(layout: TableLayout): 'detail' | 'summary' {
+  return layout === 'grouped' ? 'summary' : layout
+}
 
 function errorHint(code: string | null): string | null {
   if (code === 'timeout') return 'Try narrowing the date range or adding a row limit.'
@@ -99,7 +113,28 @@ export function OrdersIrPage() {
     setSelectedIndex(null)
   }
 
+  function setLayoutOverride(layout: TableLayout) {
+    if (selectedIndex === null) return
+    setExchanges(prev =>
+      prev.map((ex, i) =>
+        i === selectedIndex && ex.kind === 'success' ? { ...ex, layoutOverride: layout } : ex,
+      ),
+    )
+  }
+
   const selected = selectedIndex !== null ? (exchanges[selectedIndex] ?? null) : null
+
+  const detectedLayout =
+    selected?.kind === 'success'
+      ? detectTableLayout(selected.envelope.spec, selected.envelope.columns)
+      : null
+
+  const activeLayout =
+    selected?.kind === 'success'
+      ? (selected.layoutOverride ?? detectedLayout ?? 'detail')
+      : null
+
+  const displayLayout = activeLayout ? resolvedDisplayLayout(activeLayout) : null
 
   return (
     <div className="flex h-dvh max-h-screen">
@@ -218,31 +253,62 @@ export function OrdersIrPage() {
           <>
             {/* Result header */}
             <div className="flex-shrink-0 border-b border-neutral-200 dark:border-neutral-700 px-6 py-4 bg-white dark:bg-neutral-900">
-              <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-                {selected.envelope.title ?? 'Query Result'}
-              </h3>
-              <div className="mt-1 flex flex-col gap-1">
-                {selected.envelope.meta.truncated && (
-                  <p className="text-xs text-neutral-500">
-                    Showing first {selected.envelope.meta.limit ?? selected.envelope.meta.row_count} rows —
-                    refine your query to narrow the results.
-                  </p>
-                )}
-                {selected.envelope.meta.unsupported_note && (
-                  <p className="text-xs text-amber-700 dark:text-amber-400">
-                    Note: {selected.envelope.meta.unsupported_note}
-                  </p>
-                )}
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
+                    {selected.envelope.title ?? 'Query Result'}
+                  </h3>
+                  <div className="mt-1 flex flex-col gap-1">
+                    {selected.envelope.meta.truncated && (
+                      <p className="text-xs text-neutral-500">
+                        Showing first {selected.envelope.meta.limit ?? selected.envelope.meta.row_count} rows —
+                        refine your query to narrow the results.
+                      </p>
+                    )}
+                    {selected.envelope.meta.unsupported_note && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400">
+                        Note: {selected.envelope.meta.unsupported_note}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Layout switcher */}
+                <div className="flex-shrink-0 flex items-center gap-1 rounded-lg border border-neutral-200 dark:border-neutral-700 p-1">
+                  {(['detail', 'summary'] as const).map(layout => (
+                    <button
+                      key={layout}
+                      type="button"
+                      onClick={() => setLayoutOverride(layout)}
+                      className={clsx(
+                        'px-3 py-1 text-xs font-medium rounded-md transition-colors',
+                        activeLayout === layout
+                          ? 'bg-brand-500 text-white'
+                          : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300',
+                      )}
+                    >
+                      {LAYOUT_LABELS[layout]}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Table */}
             <div className="flex-1 overflow-y-auto p-6">
-              <TableView
-                data={selected.envelope.data}
-                columns={selected.envelope.columns}
-                title={selected.envelope.title}
-              />
+              {displayLayout === 'summary' ? (
+                <SummaryTableView
+                  data={selected.envelope.data}
+                  columns={selected.envelope.columns}
+                  title={selected.envelope.title}
+                />
+              ) : (
+                <DetailTableView
+                  data={selected.envelope.data}
+                  columns={selected.envelope.columns}
+                  title={selected.envelope.title}
+                />
+              )}
               {selected.envelope.meta.sql_debug && (
                 <details className="mt-4 text-xs text-neutral-400">
                   <summary className="cursor-pointer select-none hover:text-neutral-600 dark:hover:text-neutral-300">
