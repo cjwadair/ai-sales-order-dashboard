@@ -119,14 +119,14 @@ const alignmentClassNames: Record<ColumnAlign, string> = {
   right: 'text-right',
 }
 
-const defaultContainerClassName = 'h-full overflow-hidden rounded-xl border border-neutral-300 bg-white sm:mx-6 lg:mx-10 xl:px-0 xl:max-w-11/12 3xl:max-w-10/12 xl:mx-auto dark:border-neutral-700 dark:bg-neutral-900'
+const defaultContainerClassName = 'h-full overflow-hidden rounded-xl border border-neutral-300 bg-white dark:border-neutral-800 dark:bg-neutral-950'
 const defaultBodyClassName = 'h-full flex flex-col w-full text-left text-sm'
 const defaultRowLayoutClassName = 'grid gap-2 justify-stretch items-center w-full'
-const defaultHeaderClassName = 'h-14 bg-accent-100 border border-accent-200 text-accent-800 dark:bg-neutral-800 dark:text-neutral-300 align-bottom'
+const defaultHeaderClassName = 'h-12 bg-brand-500  border rounded-t-xl border border-brand-500 text-white dark:border-neutral-900 dark:bg-neutral-900 dark:text-neutral-300 align-bottom'
 const headerCellClassName = 'px-4 font-medium'
-const cellClassName = 'px-4 text-neutral-800 dark:text-neutral-300'
-const defaultRowHeightClassName = 'h-16 border-t border-neutral-200 dark:border-neutral-700'
-const defaultEmptyStateClassName = 'border-t border-neutral-200 dark:border-neutral-700'
+const cellClassName = 'px-4 text-neutral-900 dark:text-neutral-300'
+const defaultRowHeightClassName = 'h-14 border-t border-neutral-200 dark:border-neutral-800'
+const defaultEmptyStateClassName = 'border-t border-neutral-200 dark:border-neutral-800'
 const defaultEmptyStateMessageClassName = 'px-4 py-8 text-center text-neutral-500 dark:text-neutral-400'
 
 type GridTableContextValue<TItem> = {

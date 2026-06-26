@@ -34,7 +34,7 @@ export function AiSearchBar({ onSearch, isLoading, error }: AiSearchBarProps) {
             placeholder='Ask AI — try "show completed orders for the last 30 days"'
             aria-label="AI search"
             disabled={isLoading}
-            className="block w-full rounded-md border border-neutral-400 bg-white py-2 pl-9 pr-3 sm:text-sm focus:border-accent-800 focus:ring-neutral-500 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100 dark:placeholder-neutral-400 disabled:opacity-60"
+            className="block w-full rounded-md border border-neutral-400 bg-white placeholder:text-neutral-500 py-2 pl-9 pr-3 sm:text-sm focus:border-accent-800 focus:ring-neutral-500 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100 dark:placeholder:text-neutral-400 disabled:opacity-60"
           />
         </div>
       </form>

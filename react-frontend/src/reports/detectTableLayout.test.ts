@@ -41,37 +41,28 @@ describe('detectTableLayout — using spec arrays', () => {
   })
 })
 
-describe('detectTableLayout — column fallback when spec lacks arrays', () => {
-  it('returns detail when all columns are non-measures', () => {
+describe('detectTableLayout — missing spec arrays default to detail', () => {
+  it('returns detail when spec has no arrays at all', () => {
     expect(
       detectTableLayout({}, [str('order_number'), str('customer'), date('order_date')]),
     ).toBe('detail')
   })
 
-  it('returns detail when spec is missing dimensions key', () => {
+  it('returns detail when spec has measures array but no dimensions array', () => {
     expect(detectTableLayout({ measures: [] }, [str('order_number'), dec('total')])).toBe('detail')
   })
 
-  it('returns summary when 1 dim + 1 measure column', () => {
-    expect(detectTableLayout({}, [str('sales_rep'), dec('total')])).toBe('summary')
+  it('returns detail when spec has dimensions array but no measures array', () => {
+    expect(detectTableLayout({ dimensions: [{}] }, [str('sales_rep'), dec('total')])).toBe('detail')
   })
 
-  it('returns summary when 0 dims + 1 measure column', () => {
-    expect(detectTableLayout({}, [dec('total')])).toBe('summary')
+  it('returns detail even when columns include decimal types (cannot infer aggregation from type alone)', () => {
+    // order_total declared as a dimension looks the same as a measure at the column-type level
+    expect(detectTableLayout({}, [str('sales_rep'), dec('order_total')])).toBe('detail')
   })
 
-  it('returns summary when 1 dim + integer measure', () => {
-    expect(detectTableLayout({}, [str('warehouse'), int('order_count')])).toBe('summary')
-  })
-
-  it('returns grouped when 2 dim cols + 1 measure col', () => {
-    expect(detectTableLayout({}, [str('sales_rep'), str('warehouse'), dec('total')])).toBe('grouped')
-  })
-
-  it('returns grouped when 2 dim + 2 measure cols', () => {
-    expect(
-      detectTableLayout({}, [str('sales_rep'), date('month'), dec('revenue'), int('orders')]),
-    ).toBe('grouped')
+  it('returns detail even when columns are all numeric', () => {
+    expect(detectTableLayout({}, [dec('total'), int('count')])).toBe('detail')
   })
 })
 

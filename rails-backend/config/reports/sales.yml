@@ -34,7 +34,7 @@ entities:
       order_status: { column: order_status, type: enum,    roles: [dimension, filter], values: [pending, approved, processing, shipped, delivered, completed] }
       order_type:   { column: order_type, type: enum, roles: [dimension, filter], values: [Delivery, Return] }
       payment_status: { column: payment_status, type: string, roles: [dimension, filter] }
-      order_total:  { column: order_total,  type: decimal, roles: [measure, filter], aggregations: [sum, avg, min, max] }
+      order_total:  { column: order_total,  type: decimal, roles: [dimension, measure, filter], aggregations: [sum, avg, min, max], description: "Per-order total amount. Use as dimension when listing individual orders; use as measure (sum/avg/min/max) only when aggregating across orders." }
 
   sales_rep:
     table: sales_reps

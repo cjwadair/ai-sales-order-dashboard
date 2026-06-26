@@ -100,6 +100,12 @@ module Reports
         - A period named WITHOUT a year means its most recent occurrence that has
           already happened (asked in June 2026: "May" → May 2026; "November" → Nov 2025).
 
+        For row-level queries (listing, showing, or viewing individual records),
+        put ALL columns — including numeric/decimal fields like order_total — in
+        `dimensions` with NO `measures`. Only emit `measures` when the question
+        explicitly asks for an aggregation: totals, sums, averages, counts, or a
+        "by"-grouping comparison.
+
         Prefer aggregations (measures) when the user asks for totals, counts,
         averages, or any "by"-grouping. Give every dimension and measure a short,
         clear `as` alias, and reference those aliases in `sort`.

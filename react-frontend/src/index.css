@@ -4,7 +4,7 @@
 
 @theme {
   --color-brand-100: #F0F8FE;
-  --color-brand-500: #D84510;
+  --color-brand-500: #D85A30;
   --color-brand-600: #C7340F;
   --color-accent-100: #E7F2FE;
   --color-accent-200: #D2E7F9;
@@ -24,6 +24,7 @@
   --color-neutral-700: #414F58;
   --color-neutral-800: #33444D;
   --color-neutral-900: #161B1D;
+  --color-neutral-950: #0C0F10;
   --breakpoint-3xl: 1920px;
   --breakpoint-4xl: 2560px;
   --breakpoint-5xl: 3840px;
@@ -31,6 +32,13 @@
 
 html {
   font-size: 16px;
+}
+
+body {
+  @apply text-neutral-900 dark:text-neutral-100;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .page-row {

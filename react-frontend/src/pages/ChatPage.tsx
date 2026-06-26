@@ -58,7 +58,7 @@ export function ChatPage() {
   }
 
   return (
-    <section className="flex flex-col h-dvh max-h-screen w-full">
+    <section className="flex flex-col h-dvh max-h-screen sm:mx-6 lg:mx-10 xl:px-0 xl:max-w-11/12 3xl:max-w-10/12 xl:mx-auto">
       <PageHeader title="Chat" />
 
       {/* Scrollable history — content anchors to the bottom when short */}

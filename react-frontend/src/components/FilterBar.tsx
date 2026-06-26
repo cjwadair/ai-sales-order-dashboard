@@ -248,7 +248,7 @@ export function FilterBar({
     const activeNonAiFilters = activeFilters.filter((f) => f.type !== 'aiSearch')
     const hasFilterRow = activeNonAiFilters.length > 0 || anyFilterHasValue
     return (
-      <div className="page-row flex flex-col gap-3">
+      <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 max-w-10/12 xl:max-w-3/4 2xl:max-w-2/3">{renderActiveFilter(activeAiFilter)}</div>
           {inactiveFilters.length > 0 && (

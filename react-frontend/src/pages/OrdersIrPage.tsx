@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faArrowUp } from '@fortawesome/free-solid-svg-icons'
+import { faArrowUp, faWandMagicSparkles, faXmark } from '@fortawesome/free-solid-svg-icons'
 import clsx from 'clsx'
 import { useOrdersIrQuery, ReportQueryError, type ReportEnvelope } from '../hooks/useOrdersIrQuery'
 import { detectTableLayout, type TableLayout } from '../reports/detectTableLayout'
 import { DetailTableView } from '../reports/views/DetailTableView'
 import { SummaryTableView } from '../reports/views/SummaryTableView'
+import { PageHeader } from '../components/PageHeader'
 
 type SuccessExchange = {
   kind: 'success'
@@ -21,9 +22,6 @@ type ErrorExchange = {
   details: string[]
 }
 type Exchange = SuccessExchange | ErrorExchange
-
-const DEFAULT_QUERY =
-  'List all orders showing order number, date, customer, warehouse, order total, status, and sales rep, sorted by order date descending'
 
 const LAYOUT_LABELS: Record<TableLayout, string> = {
   detail: 'Detail',
@@ -46,6 +44,7 @@ export function OrdersIrPage() {
   const [input, setInput] = useState('')
   const [exchanges, setExchanges] = useState<Exchange[]>([])
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const { runQuery, clearHistory, isLoading } = useOrdersIrQuery()
   const sidebarBottomRef = useRef<HTMLDivElement>(null)
   const initialized = useRef(false)
@@ -54,27 +53,12 @@ export function OrdersIrPage() {
     sidebarBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [exchanges])
 
-  // Load the default view on mount — same logic as submit but always starts from index 0.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (initialized.current) return
     initialized.current = true
-    void (async () => {
-      try {
-        const envelope = await runQuery(DEFAULT_QUERY)
-        setExchanges([{ kind: 'success', query: DEFAULT_QUERY, envelope }])
-        setSelectedIndex(0)
-      } catch (err) {
-        setExchanges([{
-          kind: 'error',
-          query: DEFAULT_QUERY,
-          message: err instanceof Error ? err.message : 'Report query failed',
-          code: err instanceof ReportQueryError ? err.code : null,
-          details: err instanceof ReportQueryError ? err.details : [],
-        }])
-        setSelectedIndex(0)
-      }
-    })()
-  }, [runQuery])
+    void submit('show me all orders')
+  }, [])
 
   async function submit(query: string) {
     const trimmed = query.trim()
@@ -136,98 +120,91 @@ export function OrdersIrPage() {
 
   const displayLayout = activeLayout ? resolvedDisplayLayout(activeLayout) : null
 
-  return (
-    <div className="flex h-dvh max-h-screen">
-      {/* Chat sidebar */}
-      <aside className="w-72 flex-shrink-0 flex flex-col border-r border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-900">
-        <div className="flex-shrink-0 px-4 py-3 border-b border-neutral-200 dark:border-neutral-700">
-          <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">Sales Queries</h2>
-        </div>
+  console.log('Selected exchange:', selected, 'Detected layout:', detectedLayout, 'Active layout:', activeLayout, 'Display layout:', displayLayout)
 
-        {/* Exchange list */}
-        <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-2">
-          {exchanges.length === 0 && !isLoading && (
-            <p className="text-xs text-neutral-400 text-center mt-4 px-2">
-              Ask a question about your sales data to get started.
-            </p>
-          )}
-          {exchanges.map((ex, i) => (
+  return (
+  <section className="flex flex-col gap-5 h-dvh max-h-screen sm:mx-6 lg:mx-10 xl:px-0 xl:max-w-11/12 3xl:max-w-10/12 xl:mx-auto">
+    <PageHeader title="Smart Orders"/>
+
+    <div className="flex items-center justify-between gap-4">
+      <div className="w-1/3 flex items-center gap-2">
+        <textarea
+          className="flex-1 min-h-[36px] max-h-20 resize-none rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:text-neutral-100 placeholder:text-neutral-400"
+          placeholder="Ask about your sales data…"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={isLoading}
+          rows={1}
+        />
+        <button
+          type="button"
+          onClick={() => void submit(input)}
+          disabled={isLoading || !input.trim()}
+          aria-label="Send query"
+          className="h-9 w-9 flex-shrink-0 border border-neutral-300 dark:border-neutral-600 rounded-full flex items-center justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          <FontAwesomeIcon icon={faArrowUp} className="text-sm" />
+        </button>
+      </div>
+
+      <div className="flex-shrink-0 flex items-center gap-3">
+        <div className="flex items-center gap-x-1 rounded-lg border border-neutral-200 dark:border-neutral-700">
+          {selected?.kind === 'success' && (['detail', 'summary'] as const).map(layout => (
             <button
-              key={i}
+              key={layout}
               type="button"
-              onClick={() => setSelectedIndex(i)}
+              onClick={() => setLayoutOverride(layout)}
               className={clsx(
-                'w-full text-left rounded-lg px-3 py-2.5 flex flex-col gap-1 transition-colors border',
-                i === selectedIndex
-                  ? 'bg-brand-50 dark:bg-brand-950 border-brand-200 dark:border-brand-800'
-                  : 'border-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800',
+                'px-3 py-2 text-sm font-medium rounded-md transition-colors',
+                activeLayout === layout
+                  ? 'bg-brand-500 text-white'
+                  : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300',
               )}
             >
-              <span className="text-xs text-neutral-500 dark:text-neutral-400 line-clamp-2 leading-relaxed">
-                {ex.query}
-              </span>
-              <span
-                className={clsx(
-                  'text-xs font-medium line-clamp-1',
-                  ex.kind === 'error'
-                    ? 'text-red-600 dark:text-red-400'
-                    : 'text-neutral-800 dark:text-neutral-200',
-                )}
-              >
-                {ex.kind === 'success' ? (ex.envelope.title ?? 'Result') : ex.message}
-              </span>
+              {LAYOUT_LABELS[layout]}
             </button>
           ))}
-          {isLoading && (
-            <div className="px-3 py-2 text-xs text-neutral-400">Running query…</div>
-          )}
-          <div ref={sidebarBottomRef} />
         </div>
 
-        {/* Input area */}
-        <div className="flex-shrink-0 border-t border-neutral-200 dark:border-neutral-700 px-3 py-3 flex flex-col gap-2">
-          {exchanges.length > 0 && (
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={clearAll}
-                className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
-              >
-                Clear history
-              </button>
-            </div>
-          )}
-          <div className="flex items-end gap-2">
-            <textarea
-              className="flex-1 min-h-[40px] max-h-28 resize-none rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:text-neutral-100 placeholder:text-neutral-400"
-              placeholder="Ask about your sales…"
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={isLoading}
-              rows={1}
-            />
-            <button
-              type="button"
-              onClick={() => void submit(input)}
-              disabled={isLoading || !input.trim()}
-              aria-label="Send query"
-              className="h-10 w-10 flex-shrink-0 border border-neutral-300 dark:border-neutral-600 rounded-full flex items-center justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <FontAwesomeIcon icon={faArrowUp} className="text-sm" />
-            </button>
-          </div>
-        </div>
-      </aside>
+        <button
+          type="button"
+          onClick={() => setIsSidebarOpen(prev => !prev)}
+          aria-expanded={isSidebarOpen}
+          aria-label="Toggle AI query sidebar"
+          className="inline-flex items-center px-2 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 border border-neutral-300 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-700 cursor-pointer rounded-md"
+        >
+          <FontAwesomeIcon icon={faWandMagicSparkles} className="text-accent-800" />
+          <span className="ml-1">AI Query</span>
+        </button>
+      </div>
+    </div>
 
-      {/* Main result panel */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 min-h-0 mb-4 flex flex-col gap-2 overflow-hidden">
+      {selected?.kind === 'success' && (
+        <div className="flex-shrink-0 flex items-baseline gap-3 text-sm">
+          <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">
+            {selected.envelope.title ?? 'Query Result'}
+          </h3>
+          {selected.envelope.meta.truncated && (
+            <p className="text-neutral-500">
+              Showing first {selected.envelope.meta.limit ?? selected.envelope.meta.row_count} rows — refine your query to narrow the results.
+            </p>
+          )}
+          {selected.envelope.meta.unsupported_note && (
+            <p className="text-amber-700 dark:text-amber-400">
+              Note: {selected.envelope.meta.unsupported_note}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="flex-1 min-h-0 flex overflow-hidden">
         {selected === null ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center text-neutral-400 dark:text-neutral-500">
-              <p className="text-lg font-medium mb-1">Smart Orders</p>
-              <p className="text-sm">Ask a question in the sidebar to view results here.</p>
-            </div>
+            <p className="text-sm text-neutral-400 dark:text-neutral-500">
+              {isLoading ? 'Loading…' : 'No results yet.'}
+            </p>
           </div>
         ) : selected.kind === 'error' ? (
           <div className="flex-1 overflow-y-auto p-6">
@@ -250,52 +227,9 @@ export function OrdersIrPage() {
             </div>
           </div>
         ) : (
-          <>
-            {/* Result header */}
-            <div className="flex-shrink-0 border-b border-neutral-200 dark:border-neutral-700 px-6 py-4 bg-white dark:bg-neutral-900">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-                    {selected.envelope.title ?? 'Query Result'}
-                  </h3>
-                  <div className="mt-1 flex flex-col gap-1">
-                    {selected.envelope.meta.truncated && (
-                      <p className="text-xs text-neutral-500">
-                        Showing first {selected.envelope.meta.limit ?? selected.envelope.meta.row_count} rows —
-                        refine your query to narrow the results.
-                      </p>
-                    )}
-                    {selected.envelope.meta.unsupported_note && (
-                      <p className="text-xs text-amber-700 dark:text-amber-400">
-                        Note: {selected.envelope.meta.unsupported_note}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Layout switcher */}
-                <div className="flex-shrink-0 flex items-center gap-1 rounded-lg border border-neutral-200 dark:border-neutral-700 p-1">
-                  {(['detail', 'summary'] as const).map(layout => (
-                    <button
-                      key={layout}
-                      type="button"
-                      onClick={() => setLayoutOverride(layout)}
-                      className={clsx(
-                        'px-3 py-1 text-xs font-medium rounded-md transition-colors',
-                        activeLayout === layout
-                          ? 'bg-brand-500 text-white'
-                          : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300',
-                      )}
-                    >
-                      {LAYOUT_LABELS[layout]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
+          <main className="flex-1 flex flex-col overflow-hidden">
             {/* Table */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-hidden">
               {displayLayout === 'summary' ? (
                 <SummaryTableView
                   data={selected.envelope.data}
@@ -320,9 +254,107 @@ export function OrdersIrPage() {
                 </details>
               )}
             </div>
-          </>
+          </main>
         )}
-      </main>
+      </div>
+
+      {/* AI query sidebar — hidden by default, slides in from the right */}
+      <aside
+        className={clsx(
+          'flex-shrink-0 overflow-hidden transition-[width,height] duration-300 fixed right-17 shadow-lg shadow-neutral-300 dark:shadow-neutral-800',
+          isSidebarOpen ? 'w-80 h-3/4 overflow-y-hidden ml-3' : 'w-0 h-0',
+        )}
+      >
+        <div className="w-80 h-full flex flex-col border border-neutral-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-800">
+          <div className="flex-shrink-0 px-4 py-3 border-b border-neutral-200 dark:border-neutral-700 flex items-center justify-between">
+            <h2 className="font-semibold text-neutral-700 dark:text-neutral-300">Sales Queries</h2>
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(false)}
+              aria-label="Close AI query sidebar"
+              className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+            >
+              <FontAwesomeIcon icon={faXmark} />
+            </button>
+          </div>
+
+          {/* Exchange list */}
+          <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-2">
+            {exchanges.length === 0 && !isLoading && (
+              <p className="text-xs text-neutral-400 text-center mt-4 px-2">
+                Ask a question about your sales data to get started.
+              </p>
+            )}
+            {exchanges.map((ex, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setSelectedIndex(i)}
+                className={clsx(
+                  'w-full text-left rounded-lg px-3 py-2.5 flex flex-col gap-1 transition-colors border',
+                  i === selectedIndex
+                    ? 'bg-brand-50 dark:bg-brand-950 border-brand-200 dark:border-brand-800'
+                    : 'border-transparent hover:bg-neutral-100 dark:hover:bg-neutral-800',
+                )}
+              >
+                <span className="text-sm line-clamp-2 leading-relaxed">
+                  {ex.query}
+                </span>
+                <span
+                  className={clsx(
+                    'text-sm font-medium line-clamp-1',
+                    ex.kind === 'error'
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-neutral-800 dark:text-neutral-200',
+                  )}
+                >
+                  {ex.kind === 'success' ? (ex.envelope.title ?? 'Result') : ex.message}
+                </span>
+              </button>
+            ))}
+            {isLoading && (
+              <div className="px-3 py-2 text-xs text-neutral-400">Running query…</div>
+            )}
+            <div ref={sidebarBottomRef} />
+          </div>
+
+          {/* Input area */}
+          <div className="flex-shrink-0 border-t border-neutral-200 dark:border-neutral-700 px-3 py-3 flex flex-col gap-2">
+            {exchanges.length > 0 && (
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="text-xs text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300"
+                >
+                  Clear history
+                </button>
+              </div>
+            )}
+            <div className="flex items-end gap-2">
+              <textarea
+                className="flex-1 min-h-[40px] max-h-28 resize-none rounded-lg border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:text-neutral-100 placeholder:text-neutral-400"
+                placeholder="Ask about your sales…"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={isLoading}
+                rows={1}
+              />
+              <button
+                type="button"
+                onClick={() => void submit(input)}
+                disabled={isLoading || !input.trim()}
+                aria-label="Send query"
+                className="h-10 w-10 flex-shrink-0 border border-neutral-300 dark:border-neutral-600 rounded-full flex items-center justify-center hover:bg-neutral-100 dark:hover:bg-neutral-800 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <FontAwesomeIcon icon={faArrowUp} className="text-sm" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </aside>
     </div>
+  </section>
   )
 }

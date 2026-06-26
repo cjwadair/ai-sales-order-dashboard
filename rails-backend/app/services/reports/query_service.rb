@@ -38,6 +38,10 @@ module Reports
 
       ir = generator_for(config).generate(@query, history: @history, hints: @hints)
 
+      # Normalize optional arrays so the frontend can always rely on both keys being present.
+      ir["dimensions"] ||= []
+      ir["measures"]   ||= []
+
       errors = IrValidator.new(config).validate(ir)
       return validation_failed(errors) if errors.any?
 

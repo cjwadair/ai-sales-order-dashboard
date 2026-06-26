@@ -37,7 +37,7 @@ export function SummaryTableView({ data, columns }: ViewProps) {
   const gridStyle = { display: 'grid', gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }
 
   return (
-    <div className="w-full overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 dark:bg-neutral-900">
+    <div className="w-full h-full overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700 dark:bg-neutral-900">
       {/* Header */}
       <div
         style={gridStyle}
@@ -62,7 +62,7 @@ export function SummaryTableView({ data, columns }: ViewProps) {
           No data available.
         </div>
       ) : (
-        <>
+        <div className="h-full min-h-0 overflow-y-auto">
           {data.map((row, i) => (
             <div
               key={i}
@@ -104,7 +104,7 @@ export function SummaryTableView({ data, columns }: ViewProps) {
               ))}
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   )

@@ -148,7 +148,7 @@ export function OrdersPage() {
   })
 
   return (
-    <section className="flex flex-col gap-5 h-dvh max-h-screen w-full">
+    <section className="flex flex-col gap-5 h-dvh max-h-screen sm:mx-6 lg:mx-10 xl:px-0 xl:max-w-11/12 3xl:max-w-10/12 xl:mx-auto ">
       <PageHeader title="Sales Orders">
         {/* <div className="flex items-center gap-2">
           <button
@@ -171,14 +171,6 @@ export function OrdersPage() {
           </button>
         </div> */}
       </PageHeader>
-
-      {queryDescription && (
-        <div className="page-row">
-          <p className="text-center text-xl">
-            {queryDescription}
-          </p>
-        </div>  
-      )}
       
       <FilterBar
         filters={filters}

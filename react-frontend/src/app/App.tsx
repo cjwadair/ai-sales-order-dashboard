@@ -7,7 +7,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faDolly, faGauge, faWandMagicSparkles } from '@fortawesome/free-solid-svg-icons'
 import { ThemeContext } from '../contexts'
 import { useEffect, useState } from 'react'
-
+import icon from '../assets/vela-icon.svg'
+  
 export function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
 
@@ -22,8 +23,10 @@ export function App() {
       <div className="flex min-h-screen bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
         
         <header className="border-r w-24 min-h-screen border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900">
-          <div className="mx-auto flex flex-col max-w-6xl items-center justify-between px-4 pb-4 sm:px-6 lg:px-8">
-            <h1 className="text-xl text-neutral-700 font-semibold tracking-tight h-14 flex items-center">Logo</h1>
+          <div className="mx-auto flex flex-col max-w-6xl items-center justify-between pt-2 pb-4 sm:px-6">
+            <div className="h-14 flex items-center">
+              <img src={icon} alt="Logo" className="h-10 w-auto" />
+            </div>
             <nav className="flex flex-col items-center gap-6 text-base font-medium text-neutral-800 mt-8 dark:text-neutral-400">
               <NavLink
                 to="/chat"
